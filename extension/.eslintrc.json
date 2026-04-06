@@ -1,0 +1,12 @@
+{
+  "extends": ["eslint:recommended"],
+  "env": {
+    "browser": true,
+    "es2022": true,
+    "webextensions": true,
+    "jest": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 2022
+  }
+}

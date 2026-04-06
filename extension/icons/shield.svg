@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- Navy blue background -->
+  <rect width="256" height="256" fill="#1a1a2e"/>
+
+  <!-- White shield shape -->
+  <g>
+    <!-- Shield outline and fill -->
+    <path d="M128 32C128 32 64 64 64 128C64 180 128 224 128 224C128 224 192 180 192 128C192 64 128 32 128 32Z"
+          fill="white"
+          stroke="white"
+          stroke-width="2"
+          stroke-linejoin="round"/>
+
+    <!-- Checkmark inside shield for verification theme -->
+    <g transform="translate(128, 128)">
+      <line x1="-20" y1="0" x2="-8" y2="12" stroke="#1a1a2e" stroke-width="8" stroke-linecap="round"/>
+      <line x1="-8" y1="12" x2="20" y2="-16" stroke="#1a1a2e" stroke-width="8" stroke-linecap="round"/>
+    </g>
+  </g>
+</svg>

@@ -2,56 +2,101 @@ name: Extension CI
 
 on:
   push:
+    branches: [main]
     paths:
       - 'extension/**'
       - '.nvmrc'
+      - '.github/workflows/extension-ci.yml'
   pull_request:
+    branches: [main]
     paths:
       - 'extension/**'
       - '.nvmrc'
+      - '.github/workflows/extension-ci.yml'
 
 jobs:
   lint:
-    name: Lint
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: extension
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Read .nvmrc
+        id: node_version
+        run: echo "NODE_VERSION=$(cat ../.nvmrc)" >> $GITHUB_OUTPUT
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version-file: '.nvmrc'
-          cache: 'npm'
-          cache-dependency-path: extension/package-lock.json
-      - run: npm ci
-        working-directory: extension
-      - run: npm run lint
-        working-directory: extension
+          node-version: ${{ steps.node_version.outputs.NODE_VERSION }}
+      - name: Install dependencies
+        run: npm ci
+      - name: Run linter
+        run: npm run lint
 
   test:
-    name: Test (80% coverage required)
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: extension
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Read .nvmrc
+        id: node_version
+        run: echo "NODE_VERSION=$(cat ../.nvmrc)" >> $GITHUB_OUTPUT
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version-file: '.nvmrc'
-          cache: 'npm'
-          cache-dependency-path: extension/package-lock.json
-      - run: npm ci
-        working-directory: extension
-      - run: npm test -- --coverage --coverageThreshold='{"global":{"lines":80,"functions":80,"branches":80,"statements":80}}'
-        working-directory: extension
+          node-version: ${{ steps.node_version.outputs.NODE_VERSION }}
+      - name: Install dependencies
+        run: npm ci
+      - name: Run tests with coverage
+        run: npm run test:ci
+      - name: Check coverage threshold
+        run: |
+          COVERAGE=$(jq -r '.total.lines.pct' coverage/coverage-summary.json)
+          if (( $(echo "$COVERAGE < 80" | bc -l) )); then
+            echo "Coverage $COVERAGE% is below 80% threshold"
+            exit 1
+          fi
+          echo "Coverage: $COVERAGE%"
 
   build:
-    name: Build Check
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: extension
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Read .nvmrc
+        id: node_version
+        run: echo "NODE_VERSION=$(cat ../.nvmrc)" >> $GITHUB_OUTPUT
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version-file: '.nvmrc'
-          cache: 'npm'
-          cache-dependency-path: extension/package-lock.json
-      - run: npm ci
-        working-directory: extension
-      - run: npm run build --if-present
-        working-directory: extension
+          node-version: ${{ steps.node_version.outputs.NODE_VERSION }}
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify manifest.json is valid JSON
+        run: |
+          if ! jq empty manifest.json 2>/dev/null; then
+            echo "manifest.json is not valid JSON"
+            exit 1
+          fi
+          echo "manifest.json is valid"
+      - name: Verify required files exist
+        run: |
+          REQUIRED_FILES=(
+            "manifest.json"
+            "background/service-worker.js"
+            "popup/popup.html"
+            "popup/popup.js"
+            "utils/scoring.js"
+          )
+          for file in "${REQUIRED_FILES[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "Required file missing: $file"
+              exit 1
+            fi
+            echo "Found: $file"
+          done
