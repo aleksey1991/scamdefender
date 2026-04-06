@@ -1,6 +1,6 @@
 export default {
   testEnvironment: 'node',
-  coverageDirectory: '../coverage/extension',
+  coverageDirectory: 'coverage',
   collectCoverageFrom: [
     'utils/**/*.js',
     '!utils/**/*.test.js'
