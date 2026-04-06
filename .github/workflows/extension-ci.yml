@@ -2,13 +2,11 @@ name: Extension CI
 
 on:
   push:
-    branches: [main]
     paths:
       - 'extension/**'
       - '.nvmrc'
       - '.github/workflows/extension-ci.yml'
   pull_request:
-    branches: [main]
     paths:
       - 'extension/**'
       - '.nvmrc'
