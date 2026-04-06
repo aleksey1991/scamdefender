@@ -6,5 +6,6 @@ export default {
     '!utils/**/*.test.js'
   ],
   testMatch: ['**/*.test.js'],
-  transform: {}
+  transform: {},
+  coverageReporters: ['json-summary', 'text', 'lcov']
 };
