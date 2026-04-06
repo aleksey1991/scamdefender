@@ -1,10 +1,10 @@
-module.exports = {
+export default {
   testEnvironment: 'node',
   coverageDirectory: '../coverage/extension',
   collectCoverageFrom: [
     'utils/**/*.js',
-    'background/**/*.js',
-    'popup/**/*.js'
+    '!utils/**/*.test.js'
   ],
-  testMatch: ['**/*.test.js']
+  testMatch: ['**/*.test.js'],
+  transform: {}
 };

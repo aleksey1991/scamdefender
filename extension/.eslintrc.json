@@ -4,9 +4,11 @@
     "browser": true,
     "es2022": true,
     "webextensions": true,
-    "jest": true
+    "jest": true,
+    "node": true
   },
   "parserOptions": {
-    "ecmaVersion": 2022
+    "ecmaVersion": 2022,
+    "sourceType": "module"
   }
 }

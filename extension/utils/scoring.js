@@ -15,5 +15,7 @@
 export function calculateRiskScore(signals) {
   // Phase 0: Return baseline score of 0
   // Future phases will implement actual scoring algorithm
+  // eslint-disable-next-line no-unused-vars
+  const _ = signals; // Placeholder - will be used in future phases
   return 0;
 }
