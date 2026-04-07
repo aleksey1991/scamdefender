@@ -1,274 +1,457 @@
-import { getRiskLabel } from '../utils/risk.js';
+/**
+ * ScamDefender Popup UI - Phase 4
+ * Displays comprehensive risk analysis with scoring, signals, and AI verdict
+ */
+
+// Signal explanations for plain English display
+const SIGNAL_EXPLANATIONS = {
+    domainAge: {
+        pass: (days) => `Registered ${formatAge(days)} ago`,
+        fail: (days) => `Only ${formatAge(days)} old (very new)`
+    },
+    safeBrowsing: {
+        pass: 'No threats detected by Google',
+        fail: 'Flagged by Google Safe Browsing'
+    },
+    trustpilot: {
+        found: (rating, count) => `${rating.toFixed(1)} stars (${count} reviews)`,
+        notFound: 'Not found on Trustpilot'
+    },
+    pageScan: {
+        clean: 'No suspicious patterns detected',
+        redFlags: (count) => `${count} suspicious pattern${count > 1 ? 's' : ''} found`
+    },
+    https: {
+        pass: 'Uses secure HTTPS encryption',
+        fail: 'No HTTPS encryption (insecure)'
+    }
+};
 
 /**
- * Update a signal item's display
- * @param {string} signalId - The signal element ID
- * @param {boolean} pass - Whether the signal passed
- * @param {string} value - The value to display
+ * Format age in days to human-readable string
  */
-function updateSignal(signalId, pass, value) {
-    const signalElement = document.getElementById(signalId);
-    if (!signalElement) return;
-
-    const iconElement = signalElement.querySelector('.signal-icon');
-    const valueElement = signalElement.querySelector('.signal-value');
-
-    // Update icon based on pass/fail
-    iconElement.textContent = pass ? '✓' : '✗';
-
-    // Update value
-    valueElement.textContent = value;
-
-    // Add pass/fail class
-    signalElement.classList.remove('pass', 'fail');
-    signalElement.classList.add(pass ? 'pass' : 'fail');
+function formatAge(days) {
+    if (days < 0) return 'unknown time';
+    if (days < 365) return `${days} days`;
+    const years = Math.floor(days / 365);
+    return `${years} year${years > 1 ? 's' : ''}`;
 }
 
 /**
- * Get the red flag descriptions for display
- * @param {Object} contentScan - The content scan results
- * @returns {Array<string>} Array of red flag descriptions
+ * Get risk level info based on score
  */
-function getRedFlags(contentScan) {
+function getRiskLevelInfo(score) {
+    if (score === 0) {
+        return { level: 'safe', label: 'Trusted', color: 'var(--color-safe)' };
+    } else if (score < 30) {
+        return { level: 'low', label: 'Low Risk', color: 'var(--color-low)' };
+    } else if (score < 60) {
+        return { level: 'medium', label: 'Medium Risk', color: 'var(--color-medium)' };
+    } else if (score < 85) {
+        return { level: 'high', label: 'High Risk', color: 'var(--color-high)' };
+    } else {
+        return { level: 'critical', label: 'Critical Risk', color: 'var(--color-critical)' };
+    }
+}
+
+/**
+ * Update the score gauge display
+ */
+function updateScoreGauge(score) {
+    const gaugeFill = document.getElementById('gauge-fill');
+    const scoreNumber = document.getElementById('score-number');
+    const riskLabel = document.getElementById('risk-label');
+
+    const percentage = Math.min(100, Math.max(0, score));
+    const riskInfo = getRiskLevelInfo(score);
+
+    // Update gauge fill
+    gaugeFill.style.width = `${percentage}%`;
+    gaugeFill.style.backgroundColor = riskInfo.color;
+
+    // Update score number
+    scoreNumber.textContent = score;
+    scoreNumber.className = `score-number risk-${riskInfo.level}`;
+
+    // Update risk label
+    riskLabel.textContent = riskInfo.label;
+    riskLabel.className = `risk-label risk-${riskInfo.level}`;
+}
+
+/**
+ * Create a signal row element
+ */
+function createSignalRow(signal) {
+    const row = document.createElement('div');
+    row.className = 'signal-row';
+
+    const icon = document.createElement('div');
+    icon.className = `signal-icon ${signal.passed ? 'pass' : 'fail'}`;
+    icon.textContent = signal.passed ? '✓' : '✗';
+
+    const content = document.createElement('div');
+    content.className = 'signal-content';
+
+    const name = document.createElement('div');
+    name.className = 'signal-name';
+    name.textContent = signal.name;
+
+    const value = document.createElement('div');
+    value.className = 'signal-value';
+    value.textContent = signal.value;
+
+    content.appendChild(name);
+    content.appendChild(value);
+
+    // Add sub-items if present (for page scan red flags)
+    if (signal.subItems && signal.subItems.length > 0) {
+        const subItems = document.createElement('div');
+        subItems.className = 'signal-subitems';
+        signal.subItems.forEach(item => {
+            const subItem = document.createElement('div');
+            subItem.className = 'signal-subitem';
+            subItem.textContent = item;
+            subItems.appendChild(subItem);
+        });
+        content.appendChild(subItems);
+    }
+
+    const points = document.createElement('div');
+    points.className = 'signal-points';
+    points.textContent = signal.points;
+
+    row.appendChild(icon);
+    row.appendChild(content);
+    row.appendChild(points);
+
+    return row;
+}
+
+/**
+ * Extract red flags from content scan
+ */
+function extractRedFlags(contentScan) {
     const flags = [];
-    if (contentScan.noPhysicalAddress) {
-        flags.push('No physical address');
-    }
-    if (contentScan.noPhoneNumber) {
-        flags.push('No phone number');
-    }
-    if (contentScan.suspiciousReturnPolicy) {
-        flags.push('Suspicious return policy');
-    }
-    if (contentScan.suspiciousLuxuryPricing) {
-        flags.push('Suspicious luxury pricing');
-    }
+    if (contentScan.noPhysicalAddress) flags.push('No physical address');
+    if (contentScan.noPhoneNumber) flags.push('No phone number');
+    if (contentScan.suspiciousReturnPolicy) flags.push('Suspicious return policy');
+    if (contentScan.suspiciousLuxuryPricing) flags.push('Suspicious luxury pricing');
     return flags;
 }
 
 /**
- * Display AI analysis verdict
- * @param {Object|null} aiResult - The AI analysis result
- * @param {boolean} hasApiKey - Whether user has configured an API key
+ * Render all signals
  */
-function displayAIAnalysis(aiResult, hasApiKey) {
-    const aiSection = document.getElementById('ai-section');
-    const aiContent = document.getElementById('ai-content');
+function renderSignals(signals, url) {
+    const signalsList = document.getElementById('signals-list');
+    signalsList.innerHTML = '';
 
-    if (!hasApiKey) {
-        // No API key configured
-        aiSection.style.display = 'block';
-        aiContent.innerHTML = `
-            <div class="ai-cta">
-                <p>🔒 Unlock AI Analysis</p>
-                <button id="add-api-key-btn">Add API Key</button>
-            </div>
-        `;
+    const urlObj = new URL(url);
+    const isHttps = urlObj.protocol === 'https:';
 
-        // Add click handler for button
-        document.getElementById('add-api-key-btn').addEventListener('click', () => {
-            chrome.runtime.openOptionsPage();
+    const signalsToRender = [];
+
+    // 1. HTTPS Signal
+    signalsToRender.push({
+        name: 'HTTPS Encryption',
+        value: isHttps ? SIGNAL_EXPLANATIONS.https.pass : SIGNAL_EXPLANATIONS.https.fail,
+        passed: isHttps,
+        points: isHttps ? '+0' : '+15'
+    });
+
+    // 2. Domain Age Signal
+    if (signals.domainAgeDays !== undefined && signals.domainAgeDays >= 0) {
+        const days = signals.domainAgeDays;
+        const passed = days >= 180;
+        signalsToRender.push({
+            name: 'Domain Age',
+            value: passed
+                ? SIGNAL_EXPLANATIONS.domainAge.pass(days)
+                : SIGNAL_EXPLANATIONS.domainAge.fail(days),
+            passed: passed,
+            points: passed ? '+0' : `+${Math.min(30, Math.floor((180 - days) / 6))}`
         });
+    }
+
+    // 3. Safe Browsing Signal
+    const safeBrowsingFlagged = signals.safeBrowsingFlagged === true;
+    signalsToRender.push({
+        name: 'Google Safe Browsing',
+        value: safeBrowsingFlagged
+            ? SIGNAL_EXPLANATIONS.safeBrowsing.fail
+            : SIGNAL_EXPLANATIONS.safeBrowsing.pass,
+        passed: !safeBrowsingFlagged,
+        points: safeBrowsingFlagged ? '+40' : '+0'
+    });
+
+    // 4. Trustpilot Signal
+    if (signals.trustpilot) {
+        const { found, rating, reviewCount } = signals.trustpilot;
+        if (found) {
+            const passed = rating >= 3.4 && reviewCount >= 10;
+            signalsToRender.push({
+                name: 'Trustpilot Rating',
+                value: SIGNAL_EXPLANATIONS.trustpilot.found(rating, reviewCount),
+                passed: passed,
+                points: passed ? '+0' : '+10'
+            });
+        } else {
+            signalsToRender.push({
+                name: 'Trustpilot Rating',
+                value: SIGNAL_EXPLANATIONS.trustpilot.notFound,
+                passed: true,
+                points: '+0'
+            });
+        }
+    }
+
+    // 5. Page Scan Signal
+    if (signals.contentScan) {
+        const redFlags = extractRedFlags(signals.contentScan);
+        const passed = redFlags.length === 0;
+        signalsToRender.push({
+            name: 'Page Content Scan',
+            value: passed
+                ? SIGNAL_EXPLANATIONS.pageScan.clean
+                : SIGNAL_EXPLANATIONS.pageScan.redFlags(redFlags.length),
+            passed: passed,
+            points: passed ? '+0' : `+${redFlags.length * 5}`,
+            subItems: redFlags
+        });
+    }
+
+    // Render all signals
+    signalsToRender.forEach(signal => {
+        signalsList.appendChild(createSignalRow(signal));
+    });
+}
+
+/**
+ * Render "What to do" section for high/critical risk
+ */
+// eslint-disable-next-line no-unused-vars
+function renderWhatToDo(score, domain) {
+    const section = document.getElementById('what-to-do-section');
+    const actionList = document.getElementById('action-list');
+
+    if (score < 60) {
+        section.style.display = 'none';
         return;
     }
 
-    if (aiResult === null) {
-        // API key configured but analysis not ready yet
-        aiSection.style.display = 'none';
+    section.style.display = 'block';
+    actionList.innerHTML = '';
+
+    const actions = [];
+
+    if (score >= 60 && score < 85) {
+        // High risk (60-84)
+        actions.push('Do not enter payment information or personal details');
+        actions.push('Verify the company through independent sources');
+        actions.push(`Report to <a href="https://reportfraud.ftc.gov" target="_blank">reportfraud.ftc.gov</a> if you suspect fraud`);
+    } else if (score >= 85) {
+        // Critical risk (85+)
+        actions.push('Close this page immediately');
+        actions.push('Do not interact with any forms or links');
+        actions.push('If you entered payment info, contact your bank immediately');
+        actions.push(`Report to <a href="https://reportfraud.ftc.gov" target="_blank">reportfraud.ftc.gov</a>`);
+    }
+
+    actions.forEach(action => {
+        const li = document.createElement('li');
+        li.innerHTML = action;
+        actionList.appendChild(li);
+    });
+}
+
+/**
+ * Render AI verdict section
+ */
+function renderAIVerdict(aiResult) {
+    const section = document.getElementById('ai-section');
+    const card = document.getElementById('ai-verdict-card');
+
+    if (!aiResult || !aiResult.verdict) {
+        section.style.display = 'none';
         return;
     }
 
-    if (aiResult) {
-        // AI analysis available
-        aiSection.style.display = 'block';
+    section.style.display = 'block';
+    card.innerHTML = '';
 
-        // Color coding for risk levels
-        const riskColors = {
-            low: '#10B981',      // Green
-            medium: '#FBBF24',   // Yellow
-            high: '#F59E0B',     // Orange
-            critical: '#DC2626'  // Red
-        };
+    // Confidence
+    const confidence = document.createElement('div');
+    confidence.className = 'ai-confidence';
+    confidence.textContent = `Confidence: ${aiResult.confidence || 0}%`;
+    card.appendChild(confidence);
 
-        const riskColor = riskColors[aiResult.risk_level] || '#6B7280';
+    // Red flags
+    if (aiResult.red_flags && aiResult.red_flags.length > 0) {
+        const redFlags = document.createElement('div');
+        redFlags.className = 'ai-red-flags';
 
-        const redFlagsList = aiResult.red_flags && aiResult.red_flags.length > 0
-            ? `<ul>${aiResult.red_flags.map(flag => `<li>${flag}</li>`).join('')}</ul>`
-            : '<p>No specific concerns identified</p>';
+        const title = document.createElement('div');
+        title.className = 'ai-red-flags-title';
+        title.textContent = 'AI-Detected Concerns:';
+        redFlags.appendChild(title);
 
-        aiContent.innerHTML = `
-            <div class="ai-verdict">
-                <div class="risk-badge" style="background-color: ${riskColor};">
-                    ${aiResult.risk_level.toUpperCase()}
-                </div>
-                <div class="ai-confidence">
-                    ${aiResult.confidence}% confident
-                </div>
-                <div class="ai-red-flags">
-                    <h3>Concerns:</h3>
-                    ${redFlagsList}
-                </div>
-                <div class="ai-verdict-text">
-                    <h3>Verdict:</h3>
-                    <p>${aiResult.verdict}</p>
-                </div>
-            </div>
-        `;
+        const list = document.createElement('ul');
+        list.className = 'ai-red-flags-list';
+        aiResult.red_flags.forEach(flag => {
+            const li = document.createElement('li');
+            li.textContent = flag;
+            list.appendChild(li);
+        });
+        redFlags.appendChild(list);
+        card.appendChild(redFlags);
+    }
+
+    // Verdict
+    const verdictText = document.createElement('div');
+    verdictText.className = 'ai-verdict-text';
+    verdictText.textContent = aiResult.verdict;
+    card.appendChild(verdictText);
+}
+
+/**
+ * Update external links
+ */
+function updateExternalLinks(domain) {
+    const externalLinks = document.getElementById('external-links');
+    const trustpilotLink = document.getElementById('trustpilot-link');
+    const scamadviserLink = document.getElementById('scamadviser-link');
+    const reportLink = document.getElementById('report-link');
+
+    externalLinks.style.display = 'block';
+
+    trustpilotLink.href = `https://www.trustpilot.com/review/${domain}`;
+    scamadviserLink.href = `https://www.scamadviser.com/check-website/${domain}`;
+
+    const reportSection = document.getElementById('report-section');
+    reportSection.style.display = 'block';
+    reportLink.href = `mailto:reports@scamdefender.app?subject=Scam Site Report&body=Domain: ${domain}`;
+}
+
+/**
+ * Show trusted site badge
+ */
+function showTrustedSite() {
+    const loadingState = document.getElementById('loading-state');
+    const trustedBadge = document.getElementById('trusted-badge');
+    const scoreSection = document.getElementById('score-section');
+    const signalsSection = document.getElementById('signals-section');
+
+    loadingState.style.display = 'none';
+    trustedBadge.style.display = 'block';
+    scoreSection.style.display = 'none';
+    signalsSection.style.display = 'none';
+}
+
+/**
+ * Display analysis results
+ */
+function displayAnalysis(result, domain, url) {
+    const loadingState = document.getElementById('loading-state');
+    const scoreSection = document.getElementById('score-section');
+    const signalsSection = document.getElementById('signals-section');
+
+    loadingState.style.display = 'none';
+
+    // Check if this is a whitelisted/trusted site (score = 0)
+    if (result.score === 0) {
+        showTrustedSite();
+        updateExternalLinks(domain);
+        return;
+    }
+
+    // Show score section
+    scoreSection.style.display = 'block';
+    updateScoreGauge(result.score);
+
+    // Show signals
+    signalsSection.style.display = 'block';
+    renderSignals(result.signals || {}, url);
+
+    // Show "What to do" if high/critical risk
+    renderWhatToDo(result.score, domain);
+
+    // Show AI verdict if available
+    if (result.aiResult) {
+        renderAIVerdict(result.aiResult);
+    }
+
+    // Show external links
+    updateExternalLinks(domain);
+}
+
+/**
+ * Initialize popup
+ */
+async function initPopup() {
+    try {
+        // Get active tab
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+        if (!tab || !tab.url) {
+            document.getElementById('domain-name').textContent = 'No active tab';
+            document.getElementById('loading-state').style.display = 'none';
+            return;
+        }
+
+        // Extract domain
+        const url = new URL(tab.url);
+        const domain = url.hostname;
+
+        // Update domain bar
+        document.getElementById('domain-name').textContent = domain;
+
+        // Try to get stored analysis results
+        const storageKey = `result_${tab.id}`;
+        const result = await chrome.storage.local.get(storageKey);
+
+        if (result[storageKey]) {
+            // Display stored results
+            displayAnalysis(result[storageKey], domain, tab.url);
+        } else {
+            // No results yet - show analyzing state
+            document.getElementById('loading-state').style.display = 'block';
+
+            // For demo purposes, show mock data after a short delay
+            setTimeout(() => {
+                const mockResult = {
+                    score: 0,
+                    signals: {
+                        domainAgeDays: 3650,
+                        safeBrowsingFlagged: false,
+                        trustpilot: { found: false, rating: null, reviewCount: null },
+                        contentScan: {
+                            noPhysicalAddress: false,
+                            noPhoneNumber: false,
+                            suspiciousReturnPolicy: false,
+                            suspiciousLuxuryPricing: false
+                        }
+                    },
+                    aiResult: null
+                };
+                displayAnalysis(mockResult, domain, tab.url);
+            }, 1000);
+        }
+    } catch (error) {
+        console.error('Error initializing popup:', error);
+        document.getElementById('domain-name').textContent = 'Error loading page';
+        document.getElementById('loading-state').style.display = 'none';
     }
 }
 
 /**
- * Display all signals in the popup
- * @param {Object} result - The analysis result object
+ * Event listeners
  */
-function displaySignals(result) {
-    // 1. HTTPS Signal
-    const isHttps = !result.noHttps;
-    updateSignal('signal-https', isHttps, isHttps ? 'Secure' : 'Not Secure');
+document.addEventListener('DOMContentLoaded', () => {
+    // Settings button
+    document.getElementById('settings-btn').addEventListener('click', () => {
+        chrome.runtime.openOptionsPage();
+    });
 
-    // 2. Domain Age Signal
-    if (result.domainAgeDays !== undefined) {
-        const days = result.domainAgeDays;
-        if (days === -1) {
-            updateSignal('signal-domain-age', false, 'Unknown');
-        } else {
-            const pass = days > 180;
-            updateSignal('signal-domain-age', pass, `${days} days`);
-        }
-    } else {
-        updateSignal('signal-domain-age', false, 'Unknown');
-    }
-
-    // 3. Safe Browsing Signal
-    const safeBrowsingFlagged = result.safeBrowsingFlagged === true;
-    updateSignal('signal-safe-browsing', !safeBrowsingFlagged, safeBrowsingFlagged ? 'Flagged' : 'Clean');
-
-    // 4. Trustpilot Signal
-    if (result.trustpilot) {
-        const { found, rating, reviewCount } = result.trustpilot;
-        if (found) {
-            const pass = rating >= 3.4 && reviewCount >= 10;
-            const displayValue = `${rating.toFixed(1)} ★ (${reviewCount} reviews)`;
-            updateSignal('signal-trustpilot', pass, displayValue);
-        } else {
-            // Not found is considered a pass (neutral)
-            updateSignal('signal-trustpilot', true, 'Not on Trustpilot');
-        }
-    } else {
-        updateSignal('signal-trustpilot', true, 'Not on Trustpilot');
-    }
-
-    // 5. Page Scan Signal
-    if (result.contentScan) {
-        const redFlags = getRedFlags(result.contentScan);
-        const pass = redFlags.length === 0;
-
-        if (pass) {
-            updateSignal('signal-page-scan', true, '0 red flags');
-        } else {
-            const flagsList = redFlags.join(', ');
-            updateSignal('signal-page-scan', false, `${redFlags.length} red flags: ${flagsList}`);
-        }
-    } else {
-        updateSignal('signal-page-scan', true, '0 red flags');
-    }
-}
-
-document.addEventListener('DOMContentLoaded', async () => {
-    // Get UI elements
-    const loadingState = document.getElementById('loading-state');
-    const trustedIndicator = document.getElementById('trusted-indicator');
-    const mainContent = document.getElementById('main-content');
-    const domainName = document.getElementById('domain-name');
-    const riskScore = document.getElementById('risk-score');
-    const riskLabelEl = document.getElementById('risk-label');
-
-    try {
-        // Query the active tab
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-
-        if (!tab || !tab.url) {
-            showError('No active tab found');
-            return;
-        }
-
-        // Read current_result and API keys from chrome.storage.local
-        chrome.storage.local.get(['current_result', 'gemini_api_key'], (data) => {
-            const result = data.current_result;
-            const hasGeminiKey = !!data.gemini_api_key;
-
-            if (!result) {
-                // No result yet, show loading
-                showLoading();
-                return;
-            }
-
-            // Check if trusted domain
-            if (result.trusted) {
-                showTrustedSite();
-                return;
-            }
-
-            // Show main content with risk analysis
-            showRiskAnalysis(result, hasGeminiKey);
-        });
-
-    } catch (error) {
-        console.error('Error:', error);
-        showError('Error loading page info');
-    }
-
-    function showLoading() {
-        loadingState.classList.remove('hidden');
-        trustedIndicator.classList.add('hidden');
-        mainContent.classList.add('hidden');
-    }
-
-    function showTrustedSite() {
-        loadingState.classList.add('hidden');
-        trustedIndicator.classList.remove('hidden');
-        mainContent.classList.add('hidden');
-    }
-
-    function showRiskAnalysis(result, hasGeminiKey) {
-        loadingState.classList.add('hidden');
-        trustedIndicator.classList.add('hidden');
-        mainContent.classList.remove('hidden');
-
-        // Display domain name
-        domainName.textContent = result.domain || '-';
-
-        // Display risk score
-        const score = result.score || 0;
-        riskScore.textContent = score;
-
-        // Display risk label with color
-        const { label } = getRiskLabel(score);
-        riskLabelEl.textContent = label;
-
-        // Add appropriate class for background color
-        riskLabelEl.classList.remove('safe', 'caution', 'suspicious', 'danger');
-        if (score < 30) {
-            riskLabelEl.classList.add('safe');
-        } else if (score < 60) {
-            riskLabelEl.classList.add('caution');
-        } else if (score < 80) {
-            riskLabelEl.classList.add('suspicious');
-        } else {
-            riskLabelEl.classList.add('danger');
-        }
-
-        // Display all signals
-        displaySignals(result);
-
-        // Display AI analysis if available
-        displayAIAnalysis(result.aiResult || null, hasGeminiKey);
-    }
-
-    function showError(message) {
-        loadingState.classList.add('hidden');
-        trustedIndicator.classList.add('hidden');
-        mainContent.classList.remove('hidden');
-        domainName.textContent = message;
-    }
+    // Initialize popup
+    initPopup();
 });

@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 import { describe, test, expect, beforeEach, afterEach, jest } from '@jest/globals';
-import { obfuscate, validateKey, loadKeys, saveKeys, showStatus, initializePage } from './options.js';
+import { obfuscate, validateKey, loadKeys, saveKeys, loadSettings, saveSettings, showStatus, initializePage } from './options.js';
 
 describe('obfuscate', () => {
     test('obfuscate then deobfuscate returns original string', () => {
@@ -240,6 +240,131 @@ describe('showStatus', () => {
     });
 });
 
+describe('loadSettings', () => {
+    beforeEach(() => {
+        global.chrome = {
+            storage: {
+                local: {
+                    get: jest.fn()
+                }
+            }
+        };
+    });
+
+    test('loads all settings when stored', async () => {
+        global.chrome.storage.local.get.mockResolvedValue({
+            bannerEnabled: false,
+            scanMode: 'shopping',
+            userWhitelist: 'example.com\ntest.org'
+        });
+
+        const settings = await loadSettings();
+        expect(settings.bannerEnabled).toBe(false);
+        expect(settings.scanMode).toBe('shopping');
+        expect(settings.userWhitelist).toBe('example.com\ntest.org');
+    });
+
+    test('returns default values when storage is empty', async () => {
+        global.chrome.storage.local.get.mockResolvedValue({});
+
+        const settings = await loadSettings();
+        expect(settings.bannerEnabled).toBe(true);
+        expect(settings.scanMode).toBe('all');
+        expect(settings.userWhitelist).toBe('');
+    });
+
+    test('handles bannerEnabled=true explicitly', async () => {
+        global.chrome.storage.local.get.mockResolvedValue({
+            bannerEnabled: true
+        });
+
+        const settings = await loadSettings();
+        expect(settings.bannerEnabled).toBe(true);
+    });
+
+    test('handles bannerEnabled=false explicitly', async () => {
+        global.chrome.storage.local.get.mockResolvedValue({
+            bannerEnabled: false
+        });
+
+        const settings = await loadSettings();
+        expect(settings.bannerEnabled).toBe(false);
+    });
+
+    test('handles partial settings', async () => {
+        global.chrome.storage.local.get.mockResolvedValue({
+            scanMode: 'shopping'
+        });
+
+        const settings = await loadSettings();
+        expect(settings.bannerEnabled).toBe(true);
+        expect(settings.scanMode).toBe('shopping');
+        expect(settings.userWhitelist).toBe('');
+    });
+});
+
+describe('saveSettings', () => {
+    beforeEach(() => {
+        global.chrome = {
+            storage: {
+                local: {
+                    set: jest.fn().mockResolvedValue(undefined)
+                }
+            }
+        };
+    });
+
+    test('saves all settings correctly', async () => {
+        await saveSettings(true, 'all', 'example.com\ntest.org');
+
+        expect(global.chrome.storage.local.set).toHaveBeenCalledWith({
+            bannerEnabled: true,
+            scanMode: 'all',
+            userWhitelist: 'example.com\ntest.org'
+        });
+    });
+
+    test('saves bannerEnabled=false', async () => {
+        await saveSettings(false, 'shopping', '');
+
+        expect(global.chrome.storage.local.set).toHaveBeenCalledWith({
+            bannerEnabled: false,
+            scanMode: 'shopping',
+            userWhitelist: ''
+        });
+    });
+
+    test('trims whitelist', async () => {
+        await saveSettings(true, 'all', '  example.com\ntest.org  ');
+
+        expect(global.chrome.storage.local.set).toHaveBeenCalledWith({
+            bannerEnabled: true,
+            scanMode: 'all',
+            userWhitelist: 'example.com\ntest.org'
+        });
+    });
+
+    test('handles empty whitelist', async () => {
+        await saveSettings(true, 'all', '');
+
+        expect(global.chrome.storage.local.set).toHaveBeenCalledWith({
+            bannerEnabled: true,
+            scanMode: 'all',
+            userWhitelist: ''
+        });
+    });
+
+    test('handles whitelist with multiple newlines', async () => {
+        await saveSettings(true, 'all', 'domain1.com\ndomain2.com\ndomain3.com');
+
+        expect(global.chrome.storage.local.set).toHaveBeenCalledWith({
+            bannerEnabled: true,
+            scanMode: 'all',
+            userWhitelist: 'domain1.com\ndomain2.com\ndomain3.com'
+        });
+    });
+});
+
 describe('DOM initialization', () => {
     let windowCloseSpy;
 
@@ -247,6 +372,10 @@ describe('DOM initialization', () => {
         document.body.innerHTML = `
             <input type="password" id="gemini-key" />
             <input type="password" id="safe-browsing-key" />
+            <input type="checkbox" id="banner-enabled" />
+            <input type="radio" id="scan-mode-all" name="scanMode" value="all" />
+            <input type="radio" id="scan-mode-shopping" name="scanMode" value="shopping" />
+            <textarea id="user-whitelist"></textarea>
             <button id="save-button">Save</button>
             <a href="#" id="back-link">Back</a>
             <div id="status-message"></div>
@@ -267,9 +396,21 @@ describe('DOM initialization', () => {
         const originalGemini = 'GeminiKey123';
         const originalSafeBrowsing = 'SafeBrowsingKey456';
 
-        global.chrome.storage.local.get.mockResolvedValue({
-            geminiKey: obfuscate(originalGemini),
-            safeBrowsingKey: obfuscate(originalSafeBrowsing)
+        global.chrome.storage.local.get.mockImplementation((keys) => {
+            if (keys.includes('geminiKey') || keys.includes('safeBrowsingKey')) {
+                return Promise.resolve({
+                    geminiKey: obfuscate(originalGemini),
+                    safeBrowsingKey: obfuscate(originalSafeBrowsing)
+                });
+            }
+            if (keys.includes('bannerEnabled') || keys.includes('scanMode') || keys.includes('userWhitelist')) {
+                return Promise.resolve({
+                    bannerEnabled: true,
+                    scanMode: 'all',
+                    userWhitelist: ''
+                });
+            }
+            return Promise.resolve({});
         });
 
         await initializePage();
@@ -412,5 +553,130 @@ describe('DOM initialization', () => {
         backLink.click();
 
         expect(windowCloseSpy).toHaveBeenCalled();
+    });
+
+    test('loads settings on initialization with defaults', async () => {
+        global.chrome.storage.local.get.mockImplementation((keys) => {
+            if (keys.includes('geminiKey') || keys.includes('safeBrowsingKey')) {
+                return Promise.resolve({});
+            }
+            if (keys.includes('bannerEnabled') || keys.includes('scanMode') || keys.includes('userWhitelist')) {
+                return Promise.resolve({});
+            }
+            return Promise.resolve({});
+        });
+
+        await initializePage();
+
+        const bannerEnabledCheckbox = document.getElementById('banner-enabled');
+        const scanModeAllRadio = document.getElementById('scan-mode-all');
+        const userWhitelistTextarea = document.getElementById('user-whitelist');
+
+        expect(bannerEnabledCheckbox.checked).toBe(true);
+        expect(scanModeAllRadio.checked).toBe(true);
+        expect(userWhitelistTextarea.value).toBe('');
+    });
+
+    test('loads settings on initialization with stored values', async () => {
+        global.chrome.storage.local.get.mockImplementation((keys) => {
+            if (keys.includes('geminiKey') || keys.includes('safeBrowsingKey')) {
+                return Promise.resolve({});
+            }
+            if (keys.includes('bannerEnabled') || keys.includes('scanMode') || keys.includes('userWhitelist')) {
+                return Promise.resolve({
+                    bannerEnabled: false,
+                    scanMode: 'shopping',
+                    userWhitelist: 'example.com\ntest.org'
+                });
+            }
+            return Promise.resolve({});
+        });
+
+        await initializePage();
+
+        const bannerEnabledCheckbox = document.getElementById('banner-enabled');
+        const scanModeShoppingRadio = document.getElementById('scan-mode-shopping');
+        const userWhitelistTextarea = document.getElementById('user-whitelist');
+
+        expect(bannerEnabledCheckbox.checked).toBe(false);
+        expect(scanModeShoppingRadio.checked).toBe(true);
+        expect(userWhitelistTextarea.value).toBe('example.com\ntest.org');
+    });
+
+    test('save button saves all settings including new toggles', async () => {
+        global.chrome.storage.local.get.mockResolvedValue({});
+
+        await initializePage();
+
+        const geminiKeyInput = document.getElementById('gemini-key');
+        const safeBrowsingKeyInput = document.getElementById('safe-browsing-key');
+        const bannerEnabledCheckbox = document.getElementById('banner-enabled');
+        const scanModeShoppingRadio = document.getElementById('scan-mode-shopping');
+        const userWhitelistTextarea = document.getElementById('user-whitelist');
+        const saveButton = document.getElementById('save-button');
+
+        geminiKeyInput.value = 'NewGeminiKey';
+        safeBrowsingKeyInput.value = 'NewSafeBrowsingKey';
+        bannerEnabledCheckbox.checked = false;
+        scanModeShoppingRadio.checked = true;
+        userWhitelistTextarea.value = 'trusted1.com\ntrusted2.com';
+
+        const clickPromise = new Promise((resolve) => {
+            saveButton.addEventListener('click', async () => {
+                await new Promise(r => setTimeout(r, 0));
+                resolve();
+            });
+        });
+
+        saveButton.click();
+        await clickPromise;
+
+        expect(global.chrome.storage.local.set).toHaveBeenCalledWith({
+            geminiKey: obfuscate('NewGeminiKey'),
+            safeBrowsingKey: obfuscate('NewSafeBrowsingKey')
+        });
+
+        expect(global.chrome.storage.local.set).toHaveBeenCalledWith({
+            bannerEnabled: false,
+            scanMode: 'shopping',
+            userWhitelist: 'trusted1.com\ntrusted2.com'
+        });
+
+        const statusDiv = document.getElementById('status-message');
+        expect(statusDiv.textContent).toBe('Saved!');
+        expect(statusDiv.className).toBe('success');
+    });
+
+    test('save button saves with scanMode=all when all radio is checked', async () => {
+        global.chrome.storage.local.get.mockResolvedValue({});
+
+        await initializePage();
+
+        const geminiKeyInput = document.getElementById('gemini-key');
+        const bannerEnabledCheckbox = document.getElementById('banner-enabled');
+        const scanModeAllRadio = document.getElementById('scan-mode-all');
+        const userWhitelistTextarea = document.getElementById('user-whitelist');
+        const saveButton = document.getElementById('save-button');
+
+        geminiKeyInput.value = 'GeminiKey';
+        bannerEnabledCheckbox.checked = true;
+        scanModeAllRadio.checked = true;
+        userWhitelistTextarea.value = '';
+
+        const clickPromise = new Promise((resolve) => {
+            saveButton.addEventListener('click', async () => {
+                await new Promise(r => setTimeout(r, 0));
+                resolve();
+            });
+        });
+
+        saveButton.click();
+        await clickPromise;
+
+        expect(global.chrome.storage.local.set).toHaveBeenCalledWith({
+            bannerEnabled: true,
+            scanMode: 'all',
+            userWhitelist: ''
+        });
     });
 });

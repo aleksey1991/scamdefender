@@ -8,86 +8,89 @@
 </head>
 <body>
     <div class="container">
+        <!-- Header -->
         <div class="header">
-            <span class="shield-icon">🛡️</span>
-            <h1>ScamDefender</h1>
+            <div class="logo-section">
+                <span class="shield-icon">🛡️</span>
+                <span class="app-name">ScamDefender</span>
+            </div>
+            <button class="settings-btn" id="settings-btn" aria-label="Settings">⚙️</button>
+        </div>
+
+        <!-- Domain Bar -->
+        <div class="domain-bar" id="domain-bar">
+            <span id="domain-name">Loading...</span>
+        </div>
+
+        <!-- Score Section -->
+        <div class="score-section" id="score-section" style="display: none;">
+            <!-- Score Gauge -->
+            <div class="score-gauge">
+                <div class="gauge-fill" id="gauge-fill"></div>
+            </div>
+
+            <!-- Score Number -->
+            <div class="score-number" id="score-number">0</div>
+
+            <!-- Risk Label -->
+            <div class="risk-label" id="risk-label">Analyzing...</div>
+        </div>
+
+        <!-- Signals Section -->
+        <div class="signals-section" id="signals-section" style="display: none;">
+            <h2 class="section-title">Security Signals</h2>
+            <div class="signals-list" id="signals-list">
+                <!-- Signal rows will be inserted here -->
+            </div>
+        </div>
+
+        <!-- What to Do Section (High/Critical Risk Only) -->
+        <div class="what-to-do-section" id="what-to-do-section" style="display: none;">
+            <h2 class="section-title warning">⚠️ What to do</h2>
+            <ul class="action-list" id="action-list">
+                <!-- Actions will be inserted here -->
+            </ul>
+        </div>
+
+        <!-- AI Verdict Section -->
+        <div class="ai-section" id="ai-section" style="display: none;">
+            <h2 class="section-title">AI Analysis</h2>
+            <div class="ai-verdict-card" id="ai-verdict-card">
+                <!-- AI verdict content will be inserted here -->
+            </div>
+        </div>
+
+        <!-- External Links -->
+        <div class="external-links" id="external-links" style="display: none;">
+            <a href="#" id="trustpilot-link" class="external-link" target="_blank">View on Trustpilot</a>
+            <span class="link-separator">•</span>
+            <a href="#" id="scamadviser-link" class="external-link" target="_blank">Check on ScamAdviser</a>
+        </div>
+
+        <!-- Report Link -->
+        <div class="report-section" id="report-section" style="display: none;">
+            <a href="#" id="report-link" class="report-link">Report this site</a>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <span>ScamDefender v1.0</span>
         </div>
 
         <!-- Loading State -->
-        <div id="loading-state" class="loading-state hidden">
+        <div class="loading-state" id="loading-state">
             <div class="spinner"></div>
-            <p>Analyzing...</p>
+            <p>Analyzing site...</p>
         </div>
 
-        <!-- Trusted Site Indicator -->
-        <div id="trusted-indicator" class="trusted-indicator hidden">
-            <span class="trusted-icon">✓</span>
-            <span class="trusted-text">Trusted Site</span>
-        </div>
-
-        <!-- Main Content -->
-        <div id="main-content" class="main-content hidden">
-            <!-- Domain Name -->
-            <div class="domain-section">
-                <div class="domain-label">Domain</div>
-                <div id="domain-name" class="domain-name">-</div>
-            </div>
-
-            <!-- Risk Score -->
-            <div class="risk-score-section">
-                <div id="risk-score" class="risk-score">0</div>
-                <div id="risk-label" class="risk-label">SAFE</div>
-            </div>
-
-            <!-- Signal Indicators -->
-            <div id="signals" class="signals">
-                <div class="signal-item" id="signal-https">
-                    <div class="signal-header">
-                        <span class="signal-icon">⏳</span>
-                        <span class="signal-name">HTTPS</span>
-                    </div>
-                    <div class="signal-value">Checking...</div>
-                </div>
-                <div class="signal-item" id="signal-domain-age">
-                    <div class="signal-header">
-                        <span class="signal-icon">⏳</span>
-                        <span class="signal-name">Domain Age</span>
-                    </div>
-                    <div class="signal-value">Checking...</div>
-                </div>
-                <div class="signal-item" id="signal-safe-browsing">
-                    <div class="signal-header">
-                        <span class="signal-icon">⏳</span>
-                        <span class="signal-name">Safe Browsing</span>
-                    </div>
-                    <div class="signal-value">Checking...</div>
-                </div>
-                <div class="signal-item" id="signal-trustpilot">
-                    <div class="signal-header">
-                        <span class="signal-icon">⏳</span>
-                        <span class="signal-name">Trustpilot</span>
-                    </div>
-                    <div class="signal-value">Checking...</div>
-                </div>
-                <div class="signal-item" id="signal-page-scan">
-                    <div class="signal-header">
-                        <span class="signal-icon">⏳</span>
-                        <span class="signal-name">Page Scan</span>
-                    </div>
-                    <div class="signal-value">Checking...</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- AI Analysis Section -->
-        <div id="ai-section" class="ai-section" style="display: none;">
-            <div class="ai-header">
-                <span>🤖</span>
-                <h2>AI Analysis</h2>
-            </div>
-            <div id="ai-content"></div>
+        <!-- Trusted Site Badge (for whitelisted domains) -->
+        <div class="trusted-badge" id="trusted-badge" style="display: none;">
+            <div class="badge-icon">✓</div>
+            <div class="badge-text">Trusted Site</div>
+            <div class="badge-description">This domain is on our whitelist</div>
         </div>
     </div>
+
     <script type="module" src="popup.js"></script>
 </body>
 </html>
