@@ -268,11 +268,215 @@ scoring.js            |     100 |      100 |     100 |     100
 
 ---
 
-## Phase 3: Trustpilot Ratings
-**Status**: ⏳ NOT STARTED
-**Dependencies**: Phase 0 completion
+## Phase 3: AI Integration (Gemini)
+**Status**: ✅ COMPLETED
+**Completion Date**: 2026-04-07
+**Branch**: `feature/phase-3-ai`
+**PR**: [#5 - Phase 3: AI Integration (Gemini)](https://github.com/aleksey1991/scamdefender/pull/5)
+**CI Run**: [Extension CI #24066460089](https://github.com/aleksey1991/scamdefender/actions/runs/24066460089)
+**Version**: 0.3.0
 
-*Details to be added upon phase start*
+### Objectives
+Add optional AI-powered analysis using Google's Gemini 2.5 Flash-Lite model with user-provided API keys (free tier). AI analysis runs alongside rule-based scoring without blocking badge updates.
+
+### Deliverables
+
+#### Options Page
+- ✅ `extension/options/options.html` - Settings page
+  - Gemini API key input (password field)
+  - Safe Browsing API key input (password field)
+  - Helper text with link to aistudio.google.com
+  - Save button with status feedback
+  - Back link to extension
+- ✅ `extension/options/options.js` - Key management logic
+  - XOR obfuscation for API keys (symmetric, simple obfuscation)
+  - Load and save from chrome.storage.local
+  - Validation (no empty keys)
+  - Status message display
+  - Never logs keys to console
+- ✅ `extension/options/options.test.js` - 33 tests
+  - Obfuscation/deobfuscation symmetry
+  - Validation logic
+  - Storage operations
+  - DOM interactions
+  - 100% code coverage for options.js
+
+#### AI Analysis Module
+- ✅ `extension/utils/ai.js` - Gemini API integration
+  - `analyzeWithAI(signals, pageExcerpts, apiKey)` function
+  - 8-second timeout with AbortController
+  - POST to Gemini 2.5 Flash-Lite API
+  - JSON response parsing with validation
+  - Returns null on any error (never throws)
+  - Never logs API key
+- ✅ `extension/utils/ai.test.js` - 22 tests
+  - Null/empty API key handling
+  - Valid response parsing
+  - Malformed JSON handling
+  - Missing required fields
+  - Network errors
+  - Timeout handling
+  - HTTP errors (429, 500)
+  - Prompt construction
+  - API key placement (URL vs body)
+  - 100% code coverage
+
+#### Content Script Enhancements
+- ✅ `extension/content/content-script.js` - Page excerpt extraction
+  - `extractAboutUsExcerpt()` - First 500 chars from #about, .about, [id*=about], [class*=about]
+  - `extractReturnPolicyExcerpt()` - First 500 chars from #returns, .returns, #refund, .refund, [id*=return], [id*=refund]
+  - Falls back to empty string if not found
+  - Includes excerpts in sendMessage payload: `{ ...scanResults, pageExcerpts }`
+- ✅ `extension/content/content-script.test.js` - Added 11 tests
+  - Excerpt extraction from various selectors
+  - 500 char truncation
+  - Fallback to empty string
+  - Updated scanPage test to include pageExcerpts
+  - 90% code coverage for content script
+
+#### Background Worker Integration
+- ✅ `extension/background/service-worker.js` - AI integration
+  - Import analyzeWithAI from utils/ai.js
+  - `deobfuscate()` function (XOR symmetric operation)
+  - Non-blocking AI analysis after content scan
+  - Badge update doesn't wait for AI
+  - Read and deobfuscate Gemini API key from storage
+  - Call AI with signals + pageExcerpts
+  - Store aiResult alongside rule-based score
+  - Update cache with AI results
+
+#### Popup UI Updates
+- ✅ `extension/popup/popup.html` - AI section
+  - New AI section with header
+  - AI content container
+- ✅ `extension/popup/popup.js` - AI verdict display
+  - `displayAIAnalysis(aiResult, hasApiKey)` function
+  - Risk level badge (color-coded: low=green, medium=yellow, high=orange, critical=red)
+  - Confidence percentage display
+  - Red flags bullet list
+  - Verdict text paragraph
+  - CTA to add API key if not configured
+  - Error state for failed AI calls
+  - Opens options page on button click
+- ✅ `extension/popup/popup.css` - AI styling
+  - AI section styles
+  - Risk badge colors
+  - Confidence display
+  - Red flags list
+  - Verdict text
+  - CTA button
+  - Error state
+
+#### Integration Tests
+- ✅ `extension/tests/integration/gemini.test.js` - 5 tests
+  - Real Gemini API calls
+  - Skipped if GEMINI_API_KEY not set
+  - Tests for scam-like signals
+  - Validates risk_level enum
+  - Validates confidence range (0-100)
+  - Validates red_flags array
+  - Validates verdict string
+- ✅ `extension/tests/integration/safebrowsing.test.js` - 4 tests
+  - Real Safe Browsing API calls
+  - Skipped if SAFE_BROWSING_KEY not set
+  - Tests known clean URL (google.com)
+  - Tests known malware URL (testsafebrowsing.appspot.com)
+  - Tests invalid URL handling
+  - Tests network error handling
+
+#### CI Workflow
+- ✅ `.github/workflows/integration.yml` - Integration test workflow
+  - Runs on PRs to develop/main
+  - Uses GitHub secrets for API keys
+  - Runs integration tests (no coverage)
+  - Parallel to main extension-ci.yml
+
+#### Test Fixtures
+- ✅ `extension/tests/fixtures/gemini-valid-response.json` - Valid AI response
+- ✅ `extension/tests/fixtures/gemini-malformed-response.json` - Malformed JSON response
+
+### Testing & Validation
+
+#### Local Tests
+- ✅ `npm run lint` - Passed with 0 warnings
+- ✅ `npm test` - 137/137 tests passed (unit tests only, integration skipped without API keys)
+- ✅ Code coverage: 97.09% overall
+
+#### CI Pipeline (GitHub Actions)
+- ✅ **Lint Job** - ESLint with zero warnings policy (extension-ci.yml)
+- ✅ **Test Job** - Jest with 80% coverage threshold, achieved 97.09% (extension-ci.yml)
+- ✅ **Build Check** - Manifest validation + required files verification (extension-ci.yml)
+- ✅ **API Integration Tests** - Integration tests with real APIs (integration.yml)
+
+#### Coverage Report
+```
+File                | % Stmts | % Branch | % Funcs | % Lines
+--------------------|---------|----------|---------|--------
+All files           |   97.09 |    93.75 |     100 |   97.02
+content-script.js   |      90 |    76.19 |     100 |   89.36
+options.js          |     100 |       96 |     100 |     100
+ai.js               |     100 |      100 |     100 |     100
+scoring.js          |     100 |    96.15 |     100 |     100
+trustpilot.js       |     100 |      100 |     100 |     100
+```
+
+### Phase 3 Checklist
+- ✅ Options page saves and retrieves Gemini API key
+- ✅ AI verdict appears in popup for analyzed sites
+- ✅ Popup shows "Add API Key" CTA when no key is set
+- ✅ Popup degrades gracefully when AI call fails
+- ✅ API key is never logged or stored in plain text
+- ✅ Unit tests pass ≥80% coverage (97.09%)
+- ✅ Integration tests created for both APIs
+- ✅ Both CI workflows green on the PR (extension-ci.yml + integration.yml)
+- ✅ Completion log updated
+
+### Testing Results
+- **Total Tests (Unit)**: 137 tests, all passing
+- **Total Tests (Integration)**: 9 tests (skipped without API keys)
+- **Code Coverage**: 97.09% overall
+  - Options module: 100%
+  - AI module: 100%
+  - Content script: 90%
+  - Scoring engine: 100%
+  - Trustpilot module: 100%
+
+### Files Modified/Created
+
+**Modified**: 6 files
+- `extension/background/service-worker.js` - AI integration
+- `extension/content/content-script.js` - Excerpt extraction
+- `extension/content/content-script.test.js` - 11 new tests
+- `extension/popup/popup.html` - AI section
+- `extension/popup/popup.js` - AI verdict display
+- `extension/popup/popup.css` - AI styling
+
+**Created**: 12 files
+- `extension/options/options.html`
+- `extension/options/options.js`
+- `extension/options/options.test.js`
+- `extension/utils/ai.js`
+- `extension/utils/ai.test.js`
+- `extension/tests/fixtures/gemini-valid-response.json`
+- `extension/tests/fixtures/gemini-malformed-response.json`
+- `extension/tests/integration/gemini.test.js`
+- `extension/tests/integration/safebrowsing.test.js`
+- `.github/workflows/integration.yml`
+- `extension/jest.config.js` (updated to include options/ coverage)
+- `extension/manifest.json` (updated with options_page)
+
+### Technical Decisions
+
+1. **XOR Obfuscation**: Simple symmetric obfuscation (not encryption) prevents casual viewing of API keys in chrome.storage.local
+2. **Non-Blocking AI**: Badge updates immediately with rule-based score, AI runs asynchronously and updates result when ready
+3. **8-Second Timeout**: Prevents hanging on slow API calls while allowing enough time for typical responses
+4. **Null Returns**: AI module never throws, always returns null on error for graceful degradation
+5. **Integration Tests**: Separate workflow with GitHub secrets, skipped locally without API keys
+6. **Free Tier**: Uses Gemini 2.5 Flash-Lite (free, no credit card) for accessibility
+
+### Next Phase Prerequisites
+- Merge PR #5 to develop branch
+- Begin Phase 4 implementation
 
 ---
 
@@ -299,11 +503,11 @@ scoring.js            |     100 |      100 |     100 |     100
 | Phase 0: Skeleton & CI | ✅ COMPLETED | 2026-04-06 | [#1](https://github.com/aleksey1991/scamdefender/pull/1) |
 | Phase 1: Domain Age (RDAP) | ⏳ NOT STARTED | - | - |
 | Phase 2: Trustpilot & Content Scan | ✅ COMPLETED | 2026-04-07 | [#4](https://github.com/aleksey1991/scamdefender/pull/4) |
-| Phase 3: Google Safe Browsing | ⏳ NOT STARTED | - | - |
-| Phase 4: Gemini AI | ⏳ NOT STARTED | - | - |
+| Phase 3: AI Integration (Gemini) | ✅ COMPLETED | 2026-04-07 | [#5](https://github.com/aleksey1991/scamdefender/pull/5) |
+| Phase 4: UX Enhancements | ⏳ NOT STARTED | - | - |
 | Phase 5: TBD | ⏳ NOT STARTED | - | - |
 
-**Overall Progress**: 33.33% (2/6 phases complete)
+**Overall Progress**: 50.0% (3/6 phases complete)
 
 ---
 

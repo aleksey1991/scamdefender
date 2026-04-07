@@ -236,10 +236,170 @@ describe('Content Script - Scam Detection', () => {
             noPhysicalAddress: true,
             noPhoneNumber: true,
             suspiciousReturnPolicy: false,
-            suspiciousLuxuryPricing: false
+            suspiciousLuxuryPricing: false,
+            pageExcerpts: {
+              aboutUs: expect.any(String),
+              returnPolicy: expect.any(String)
+            }
           }
         });
       }
+    });
+  });
+
+  describe('extractAboutUsExcerpt', () => {
+    test('extracts text from #about element', () => {
+      const dom = new JSDOM(`
+        <!DOCTYPE html>
+        <html>
+          <body>
+            <div id="about">This is our about us section with information about our company.</div>
+          </body>
+        </html>
+      `);
+      global.document = dom.window.document;
+
+      const excerpt = contentScriptModule.extractAboutUsExcerpt();
+      expect(excerpt).toContain('about us section');
+    });
+
+    test('extracts text from .about element', () => {
+      const dom = new JSDOM(`
+        <!DOCTYPE html>
+        <html>
+          <body>
+            <div class="about">Company information here.</div>
+          </body>
+        </html>
+      `);
+      global.document = dom.window.document;
+
+      const excerpt = contentScriptModule.extractAboutUsExcerpt();
+      expect(excerpt).toContain('Company information');
+    });
+
+    test('extracts text from element with id containing "about"', () => {
+      const dom = new JSDOM(`
+        <!DOCTYPE html>
+        <html>
+          <body>
+            <section id="about-us-section">Our company story.</section>
+          </body>
+        </html>
+      `);
+      global.document = dom.window.document;
+
+      const excerpt = contentScriptModule.extractAboutUsExcerpt();
+      expect(excerpt).toContain('company story');
+    });
+
+    test('truncates to 500 characters', () => {
+      const longText = 'a'.repeat(1000);
+      const dom = new JSDOM(`
+        <!DOCTYPE html>
+        <html>
+          <body>
+            <div id="about">${longText}</div>
+          </body>
+        </html>
+      `);
+      global.document = dom.window.document;
+
+      const excerpt = contentScriptModule.extractAboutUsExcerpt();
+      expect(excerpt.length).toBe(500);
+    });
+
+    test('returns empty string when no about section found', () => {
+      const dom = new JSDOM(`
+        <!DOCTYPE html>
+        <html>
+          <body>
+            <div>No about section here.</div>
+          </body>
+        </html>
+      `);
+      global.document = dom.window.document;
+
+      const excerpt = contentScriptModule.extractAboutUsExcerpt();
+      expect(excerpt).toBe('');
+    });
+  });
+
+  describe('extractReturnPolicyExcerpt', () => {
+    test('extracts text from #returns element', () => {
+      const dom = new JSDOM(`
+        <!DOCTYPE html>
+        <html>
+          <body>
+            <div id="returns">30 day return policy available.</div>
+          </body>
+        </html>
+      `);
+      global.document = dom.window.document;
+
+      const excerpt = contentScriptModule.extractReturnPolicyExcerpt();
+      expect(excerpt).toContain('30 day return');
+    });
+
+    test('extracts text from #refund element', () => {
+      const dom = new JSDOM(`
+        <!DOCTYPE html>
+        <html>
+          <body>
+            <div id="refund">Full refund within 14 days.</div>
+          </body>
+        </html>
+      `);
+      global.document = dom.window.document;
+
+      const excerpt = contentScriptModule.extractReturnPolicyExcerpt();
+      expect(excerpt).toContain('Full refund');
+    });
+
+    test('extracts text from element with id containing "return"', () => {
+      const dom = new JSDOM(`
+        <!DOCTYPE html>
+        <html>
+          <body>
+            <section id="return-policy">All sales final.</section>
+          </body>
+        </html>
+      `);
+      global.document = dom.window.document;
+
+      const excerpt = contentScriptModule.extractReturnPolicyExcerpt();
+      expect(excerpt).toContain('All sales final');
+    });
+
+    test('truncates to 500 characters', () => {
+      const longText = 'b'.repeat(1000);
+      const dom = new JSDOM(`
+        <!DOCTYPE html>
+        <html>
+          <body>
+            <div id="returns">${longText}</div>
+          </body>
+        </html>
+      `);
+      global.document = dom.window.document;
+
+      const excerpt = contentScriptModule.extractReturnPolicyExcerpt();
+      expect(excerpt.length).toBe(500);
+    });
+
+    test('returns empty string when no return policy section found', () => {
+      const dom = new JSDOM(`
+        <!DOCTYPE html>
+        <html>
+          <body>
+            <div>No return policy here.</div>
+          </body>
+        </html>
+      `);
+      global.document = dom.window.document;
+
+      const excerpt = contentScriptModule.extractReturnPolicyExcerpt();
+      expect(excerpt).toBe('');
     });
   });
 });

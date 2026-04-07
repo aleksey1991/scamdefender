@@ -47,6 +47,77 @@ function getRedFlags(contentScan) {
 }
 
 /**
+ * Display AI analysis verdict
+ * @param {Object|null} aiResult - The AI analysis result
+ * @param {boolean} hasApiKey - Whether user has configured an API key
+ */
+function displayAIAnalysis(aiResult, hasApiKey) {
+    const aiSection = document.getElementById('ai-section');
+    const aiContent = document.getElementById('ai-content');
+
+    if (!hasApiKey) {
+        // No API key configured
+        aiSection.style.display = 'block';
+        aiContent.innerHTML = `
+            <div class="ai-cta">
+                <p>🔒 Unlock AI Analysis</p>
+                <button id="add-api-key-btn">Add API Key</button>
+            </div>
+        `;
+
+        // Add click handler for button
+        document.getElementById('add-api-key-btn').addEventListener('click', () => {
+            chrome.runtime.openOptionsPage();
+        });
+        return;
+    }
+
+    if (aiResult === null) {
+        // API key configured but analysis not ready yet
+        aiSection.style.display = 'none';
+        return;
+    }
+
+    if (aiResult) {
+        // AI analysis available
+        aiSection.style.display = 'block';
+
+        // Color coding for risk levels
+        const riskColors = {
+            low: '#10B981',      // Green
+            medium: '#FBBF24',   // Yellow
+            high: '#F59E0B',     // Orange
+            critical: '#DC2626'  // Red
+        };
+
+        const riskColor = riskColors[aiResult.risk_level] || '#6B7280';
+
+        const redFlagsList = aiResult.red_flags && aiResult.red_flags.length > 0
+            ? `<ul>${aiResult.red_flags.map(flag => `<li>${flag}</li>`).join('')}</ul>`
+            : '<p>No specific concerns identified</p>';
+
+        aiContent.innerHTML = `
+            <div class="ai-verdict">
+                <div class="risk-badge" style="background-color: ${riskColor};">
+                    ${aiResult.risk_level.toUpperCase()}
+                </div>
+                <div class="ai-confidence">
+                    ${aiResult.confidence}% confident
+                </div>
+                <div class="ai-red-flags">
+                    <h3>Concerns:</h3>
+                    ${redFlagsList}
+                </div>
+                <div class="ai-verdict-text">
+                    <h3>Verdict:</h3>
+                    <p>${aiResult.verdict}</p>
+                </div>
+            </div>
+        `;
+    }
+}
+
+/**
  * Display all signals in the popup
  * @param {Object} result - The analysis result object
  */
@@ -121,9 +192,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        // Read current_result from chrome.storage.local
-        chrome.storage.local.get(['current_result'], (data) => {
+        // Read current_result and API keys from chrome.storage.local
+        chrome.storage.local.get(['current_result', 'gemini_api_key'], (data) => {
             const result = data.current_result;
+            const hasGeminiKey = !!data.gemini_api_key;
 
             if (!result) {
                 // No result yet, show loading
@@ -138,7 +210,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             // Show main content with risk analysis
-            showRiskAnalysis(result);
+            showRiskAnalysis(result, hasGeminiKey);
         });
 
     } catch (error) {
@@ -158,7 +230,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         mainContent.classList.add('hidden');
     }
 
-    function showRiskAnalysis(result) {
+    function showRiskAnalysis(result, hasGeminiKey) {
         loadingState.classList.add('hidden');
         trustedIndicator.classList.add('hidden');
         mainContent.classList.remove('hidden');
@@ -188,6 +260,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Display all signals
         displaySignals(result);
+
+        // Display AI analysis if available
+        displayAIAnalysis(result.aiResult || null, hasGeminiKey);
     }
 
     function showError(message) {
