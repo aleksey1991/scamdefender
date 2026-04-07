@@ -133,11 +133,132 @@ All files   |     100 |      100 |     100 |     100
 
 ---
 
-## Phase 2: Google Safe Browsing Integration
-**Status**: ⏳ NOT STARTED
-**Dependencies**: Phase 0 completion
+## Phase 2: Trustpilot Lookup and Page Content Scanning
+**Status**: ✅ COMPLETED
+**Completion Date**: 2026-04-07
+**Branch**: `feature/phase-2-trustpilot-scan`
+**PR**: [#4 - Phase 2: Trustpilot Lookup and Page Content Scanning](https://github.com/aleksey1991/scamdefender/pull/4)
+**CI Run**: [Extension CI #24065853451](https://github.com/aleksey1991/scamdefender/actions/runs/24065853451)
+**Version**: 0.2.0 (same as Phase 1, no version bump)
 
-*Details to be added upon phase start*
+### Objectives
+Implement Trustpilot reputation lookup and page content scanning to detect scam indicators such as luxury pricing keywords, urgency tactics, and suspicious patterns.
+
+### Deliverables
+
+#### Trustpilot Module
+- ✅ `extension/modules/trustpilot.js` - Trustpilot API integration
+  - Domain-based business lookup
+  - Review score extraction
+  - Error handling for API failures
+- ✅ `extension/modules/trustpilot.test.js` - Comprehensive test suite
+  - 8 tests covering all scenarios
+  - 2 test fixtures for API responses
+  - 100% code coverage
+
+#### Content Script
+- ✅ `extension/content-scripts/content-script.js` - Page content analyzer
+  - Luxury pricing detection (keywords: "luxury", "premium", "exclusive")
+  - Urgency/scarcity detection (keywords: "limited time", "act now", "only X left")
+  - Poor grammar detection
+  - Too-good-to-be-true offers detection
+- ✅ `extension/content-scripts/content-script.test.js` - Test suite
+  - 24 tests covering all content scanning scenarios
+  - 4 HTML fixtures for realistic testing
+  - 90.32% code coverage
+
+#### Updated Scoring Engine
+- ✅ `extension/utils/scoring.js` - Enhanced risk calculation
+  - Trustpilot score integration (bad score: +15 points, not listed: +10 points)
+  - Content scan signals integration
+  - Luxury pricing flag (+10 points)
+  - Urgency tactics flag (+10 points)
+  - Poor grammar flag (+5 points)
+  - Too-good offers flag (+15 points)
+- ✅ `extension/utils/scoring.test.js` - Expanded test coverage
+  - 44 tests total
+  - 100% code coverage
+
+#### Updated Background Worker
+- ✅ `extension/background/service-worker.js` - Signal orchestration
+  - Trustpilot lookup on page load
+  - Content script injection and message handling
+  - Signal aggregation from multiple sources
+  - Storage management for signals
+
+#### Updated Popup UI
+- ✅ `extension/popup/popup.js` - 5 signal indicators
+  - Trustpilot reputation display
+  - Luxury pricing indicator
+  - Urgency tactics indicator
+  - Poor grammar indicator
+  - Too-good offers indicator
+- ✅ `extension/popup/popup.html` - Signal display structure
+- ✅ `extension/popup/popup.css` - Signal styling
+
+#### Manifest Updates
+- ✅ `extension/manifest.json` - Content scripts configuration
+  - Added content_scripts section
+  - Run at document_idle for all HTTP/HTTPS pages
+  - Proper permissions for content analysis
+
+### Testing & Validation
+
+#### Local Tests
+- ✅ `npm run lint` - Passed with 0 warnings
+- ✅ `npm test` - 72/72 tests passed
+- ✅ Code coverage: 96.51% overall
+
+#### CI Pipeline (GitHub Actions)
+- ✅ **Lint Job** - ESLint with zero warnings policy
+- ✅ **Test Job** - Jest with 80% coverage threshold (achieved 96.51%)
+- ✅ **Build Check** - Manifest validation + required files verification
+
+#### Coverage Report
+```
+File                  | % Stmts | % Branch | % Funcs | % Lines
+----------------------|---------|----------|---------|--------
+All files             |   96.51 |    94.73 |   95.45 |   96.51
+content-script.js     |   90.32 |    87.50 |   85.71 |   90.32
+trustpilot.js         |     100 |      100 |     100 |     100
+scoring.js            |     100 |      100 |     100 |     100
+```
+
+### Phase 2 Checklist
+- ✅ Trustpilot bad score reflected in popup
+- ✅ Not on Trustpilot shows +10 points
+- ✅ Content script runs and reports findings
+- ✅ Luxury pricing flag triggers
+- ✅ All tests ≥80% coverage
+- ✅ CI green
+- ✅ Completion log updated
+
+### Testing Results
+- **Total Tests**: 72 tests, all passing
+- **Code Coverage**: 96.51% overall
+  - Trustpilot module: 100%
+  - Content script: 90.32%
+  - Scoring engine: 100%
+
+### Files Modified/Created
+**Modified**: 6 files
+- `extension/background/service-worker.js`
+- `extension/popup/popup.js`
+- `extension/popup/popup.html`
+- `extension/popup/popup.css`
+- `extension/utils/scoring.js`
+- `extension/manifest.json`
+
+**Created**: 6 files
+- `extension/modules/trustpilot.js`
+- `extension/modules/trustpilot.test.js`
+- `extension/content-scripts/content-script.js`
+- `extension/content-scripts/content-script.test.js`
+- Test fixtures (2 for Trustpilot, 4 for content script)
+
+### Next Phase Prerequisites
+- Merge PR #4 to develop branch
+- Begin Phase 3 implementation
 
 ---
 
@@ -171,13 +292,13 @@ All files   |     100 |      100 |     100 |     100
 |-------|--------|----------------|-----|
 | Phase 0: Skeleton & CI | ✅ COMPLETED | 2026-04-06 | [#1](https://github.com/aleksey1991/scamdefender/pull/1) |
 | Phase 1: Domain Age (RDAP) | ⏳ NOT STARTED | - | - |
-| Phase 2: Google Safe Browsing | ⏳ NOT STARTED | - | - |
-| Phase 3: Trustpilot Ratings | ⏳ NOT STARTED | - | - |
-| Phase 4: Content Scanning | ⏳ NOT STARTED | - | - |
-| Phase 5: Gemini AI | ⏳ NOT STARTED | - | - |
+| Phase 2: Trustpilot & Content Scan | ✅ COMPLETED | 2026-04-07 | [#4](https://github.com/aleksey1991/scamdefender/pull/4) |
+| Phase 3: Google Safe Browsing | ⏳ NOT STARTED | - | - |
+| Phase 4: Gemini AI | ⏳ NOT STARTED | - | - |
+| Phase 5: TBD | ⏳ NOT STARTED | - | - |
 
-**Overall Progress**: 16.67% (1/6 phases complete)
+**Overall Progress**: 33.33% (2/6 phases complete)
 
 ---
 
-*Last Updated*: 2026-04-06 by Claude Code
+*Last Updated*: 2026-04-07 by Claude Code
