@@ -168,6 +168,128 @@ function extractReturnPolicyExcerpt() {
 }
 
 /**
+ * Inject warning banner for high-risk sites
+ * @param {number} score - Risk score (0-100)
+ * @param {string} label - Risk label (HIGH or CRITICAL)
+ */
+function injectWarningBanner(score, label) {
+  // Do NOT inject on chrome:// or chrome-extension:// URLs
+  if (typeof window !== 'undefined' && window.location) {
+    const url = window.location.href;
+    if (url.startsWith('chrome://') || url.startsWith('chrome-extension://')) {
+      return;
+    }
+  }
+
+  // Check if banner was dismissed in this session
+  if (typeof sessionStorage !== 'undefined') {
+    if (sessionStorage.getItem('scamdefender_dismissed')) {
+      return;
+    }
+  }
+
+  // Check if banner already exists
+  if (document.getElementById('scamdefender-banner')) {
+    return;
+  }
+
+  // Create banner elements
+  const banner = document.createElement('div');
+  banner.id = 'scamdefender-banner';
+
+  const icon = document.createElement('span');
+  icon.textContent = '⚠️';
+  icon.style.fontSize = '20px';
+
+  const text = document.createElement('span');
+  text.textContent = `Warning: This site has been flagged as ${label} RISK (Score: ${score}/100)`;
+  text.style.flex = '1';
+
+  const detailsButton = document.createElement('button');
+  detailsButton.textContent = 'See Details';
+  detailsButton.id = 'scamdefender-details-btn';
+  detailsButton.addEventListener('click', () => {
+    chrome.runtime.sendMessage({ type: 'OPEN_POPUP' });
+  });
+
+  const dismissButton = document.createElement('button');
+  dismissButton.textContent = '✕';
+  dismissButton.id = 'scamdefender-dismiss-btn';
+  dismissButton.addEventListener('click', () => {
+    banner.remove();
+    const style = document.getElementById('scamdefender-banner-style');
+    if (style) {
+      style.remove();
+    }
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.setItem('scamdefender_dismissed', '1');
+    }
+  });
+
+  banner.appendChild(icon);
+  banner.appendChild(text);
+  banner.appendChild(detailsButton);
+  banner.appendChild(dismissButton);
+
+  // Inject CSS
+  const style = document.createElement('style');
+  style.id = 'scamdefender-banner-style';
+  style.textContent = `
+    #scamdefender-banner {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 2147483647;
+      background: #d63031;
+      color: white;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 14px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    #scamdefender-details-btn {
+      background: rgba(255,255,255,0.2);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.3);
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    #scamdefender-details-btn:hover {
+      background: rgba(255,255,255,0.3);
+    }
+    #scamdefender-dismiss-btn {
+      background: transparent;
+      color: white;
+      border: none;
+      padding: 4px 8px;
+      cursor: pointer;
+      font-size: 18px;
+      line-height: 1;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    #scamdefender-dismiss-btn:hover {
+      background: rgba(255,255,255,0.1);
+      border-radius: 4px;
+    }
+  `;
+
+  // Insert style and banner at the top of document
+  if (document.head) {
+    document.head.appendChild(style);
+  }
+  if (document.body) {
+    document.body.insertBefore(banner, document.body.firstChild);
+  }
+}
+
+/**
  * Run all scam detection checks and send results to background worker
  */
 function scanPage() {
@@ -190,6 +312,15 @@ function scanPage() {
   });
 }
 
+// Message listener for SHOW_BANNER
+if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
+  chrome.runtime.onMessage.addListener((message) => {
+    if (message.type === 'SHOW_BANNER' && message.score >= 70) {
+      injectWarningBanner(message.score, message.label);
+    }
+  });
+}
+
 // Run scan when page loads (only in browser context, not during testing)
 if (typeof document !== 'undefined') {
   if (document.readyState === 'loading') {
@@ -208,5 +339,6 @@ export {
   getPageText,
   extractAboutUsExcerpt,
   extractReturnPolicyExcerpt,
-  scanPage
+  scanPage,
+  injectWarningBanner
 };

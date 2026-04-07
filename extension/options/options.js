@@ -32,6 +32,19 @@ export async function loadKeys() {
 }
 
 /**
+ * Loads settings from chrome.storage.local
+ * @returns {Promise<{bannerEnabled: boolean, scanMode: string, userWhitelist: string}>}
+ */
+export async function loadSettings() {
+    const result = await chrome.storage.local.get(['bannerEnabled', 'scanMode', 'userWhitelist']);
+    return {
+        bannerEnabled: result.bannerEnabled !== undefined ? result.bannerEnabled : true,
+        scanMode: result.scanMode || 'all',
+        userWhitelist: result.userWhitelist || ''
+    };
+}
+
+/**
  * Saves keys to chrome.storage.local
  * @param {string} geminiKey - Gemini API key
  * @param {string} safeBrowsingKey - Safe Browsing API key
@@ -47,6 +60,23 @@ export async function saveKeys(geminiKey, safeBrowsingKey) {
     if (safeBrowsingKey && safeBrowsingKey.trim().length > 0) {
         data.safeBrowsingKey = obfuscate(safeBrowsingKey);
     }
+
+    await chrome.storage.local.set(data);
+}
+
+/**
+ * Saves settings to chrome.storage.local
+ * @param {boolean} bannerEnabled - Whether to show warning banners
+ * @param {string} scanMode - Scan mode ('all' or 'shopping')
+ * @param {string} userWhitelist - Newline-separated list of trusted domains
+ * @returns {Promise<void>}
+ */
+export async function saveSettings(bannerEnabled, scanMode, userWhitelist) {
+    const data = {
+        bannerEnabled,
+        scanMode,
+        userWhitelist: userWhitelist.trim()
+    };
 
     await chrome.storage.local.set(data);
 }
@@ -75,10 +105,14 @@ export function showStatus(message, type) {
 export async function initializePage() {
     const geminiKeyInput = document.getElementById('gemini-key');
     const safeBrowsingKeyInput = document.getElementById('safe-browsing-key');
+    const bannerEnabledCheckbox = document.getElementById('banner-enabled');
+    const scanModeAllRadio = document.getElementById('scan-mode-all');
+    const scanModeShoppingRadio = document.getElementById('scan-mode-shopping');
+    const userWhitelistTextarea = document.getElementById('user-whitelist');
     const saveButton = document.getElementById('save-button');
     const backLink = document.getElementById('back-link');
 
-    // Load existing keys
+    // Load existing keys and settings
     try {
         const keys = await loadKeys();
         if (keys.geminiKey) {
@@ -87,6 +121,15 @@ export async function initializePage() {
         if (keys.safeBrowsingKey) {
             safeBrowsingKeyInput.value = keys.safeBrowsingKey;
         }
+
+        const settings = await loadSettings();
+        bannerEnabledCheckbox.checked = settings.bannerEnabled;
+        if (settings.scanMode === 'all') {
+            scanModeAllRadio.checked = true;
+        } else {
+            scanModeShoppingRadio.checked = true;
+        }
+        userWhitelistTextarea.value = settings.userWhitelist;
     } catch (error) {
         showStatus('Error loading settings', 'error');
     }
@@ -104,6 +147,13 @@ export async function initializePage() {
 
         try {
             await saveKeys(geminiKey, safeBrowsingKey);
+
+            const bannerEnabled = bannerEnabledCheckbox.checked;
+            const scanMode = scanModeAllRadio.checked ? 'all' : 'shopping';
+            const userWhitelist = userWhitelistTextarea.value;
+
+            await saveSettings(bannerEnabled, scanMode, userWhitelist);
+
             showStatus('Saved!', 'success');
         } catch (error) {
             showStatus('Error saving settings', 'error');

@@ -10,7 +10,10 @@ const __dirname = path.dirname(__filename);
 // Mock chrome.runtime API before importing the content script
 global.chrome = {
   runtime: {
-    sendMessage: jest.fn()
+    sendMessage: jest.fn(),
+    onMessage: {
+      addListener: jest.fn()
+    }
   }
 };
 
@@ -400,6 +403,183 @@ describe('Content Script - Scam Detection', () => {
 
       const excerpt = contentScriptModule.extractReturnPolicyExcerpt();
       expect(excerpt).toBe('');
+    });
+  });
+
+  describe('Warning Banner Injection', () => {
+    let mockSessionStorage;
+
+    beforeEach(() => {
+      // Mock sessionStorage
+      mockSessionStorage = {
+        getItem: jest.fn(),
+        setItem: jest.fn(),
+        removeItem: jest.fn(),
+        clear: jest.fn()
+      };
+      global.sessionStorage = mockSessionStorage;
+
+      // Mock window.location
+      global.window = {
+        location: {
+          href: 'https://example.com'
+        }
+      };
+
+      // Create a fresh DOM for each test
+      const dom = new JSDOM(`
+        <!DOCTYPE html>
+        <html>
+          <head></head>
+          <body>
+            <h1>Test Page</h1>
+          </body>
+        </html>
+      `);
+      global.document = dom.window.document;
+    });
+
+    afterEach(() => {
+      jest.clearAllMocks();
+    });
+
+    test('injects banner when score >= 70', () => {
+      contentScriptModule.injectWarningBanner(75, 'HIGH');
+
+      const banner = document.getElementById('scamdefender-banner');
+      expect(banner).not.toBeNull();
+      expect(banner.textContent).toContain('HIGH RISK');
+      expect(banner.textContent).toContain('75');
+    });
+
+    test('injects banner with CRITICAL label when score >= 85', () => {
+      contentScriptModule.injectWarningBanner(90, 'CRITICAL');
+
+      const banner = document.getElementById('scamdefender-banner');
+      expect(banner).not.toBeNull();
+      expect(banner.textContent).toContain('CRITICAL RISK');
+      expect(banner.textContent).toContain('90');
+    });
+
+    test('does NOT inject banner if sessionStorage scamdefender_dismissed is set', () => {
+      mockSessionStorage.getItem.mockReturnValue('1');
+
+      contentScriptModule.injectWarningBanner(75, 'HIGH');
+
+      const banner = document.getElementById('scamdefender-banner');
+      expect(banner).toBeNull();
+      expect(mockSessionStorage.getItem).toHaveBeenCalledWith('scamdefender_dismissed');
+    });
+
+    test('does NOT inject banner twice (idempotent)', () => {
+      contentScriptModule.injectWarningBanner(75, 'HIGH');
+      contentScriptModule.injectWarningBanner(75, 'HIGH');
+
+      const banners = document.querySelectorAll('#scamdefender-banner');
+      expect(banners.length).toBe(1);
+    });
+
+    test('does NOT inject on chrome:// URLs', () => {
+      global.window.location.href = 'chrome://extensions';
+
+      contentScriptModule.injectWarningBanner(75, 'HIGH');
+
+      const banner = document.getElementById('scamdefender-banner');
+      expect(banner).toBeNull();
+    });
+
+    test('does NOT inject on chrome-extension:// URLs', () => {
+      global.window.location.href = 'chrome-extension://abcdefg/popup.html';
+
+      contentScriptModule.injectWarningBanner(75, 'HIGH');
+
+      const banner = document.getElementById('scamdefender-banner');
+      expect(banner).toBeNull();
+    });
+
+    test('dismiss button sets sessionStorage and removes banner', () => {
+      contentScriptModule.injectWarningBanner(75, 'HIGH');
+
+      const banner = document.getElementById('scamdefender-banner');
+      const dismissBtn = document.getElementById('scamdefender-dismiss-btn');
+      expect(banner).not.toBeNull();
+      expect(dismissBtn).not.toBeNull();
+
+      // Click dismiss button
+      dismissBtn.click();
+
+      // Check sessionStorage was set
+      expect(mockSessionStorage.setItem).toHaveBeenCalledWith('scamdefender_dismissed', '1');
+
+      // Check banner was removed
+      const bannerAfterDismiss = document.getElementById('scamdefender-banner');
+      expect(bannerAfterDismiss).toBeNull();
+
+      // Check style was removed
+      const styleAfterDismiss = document.getElementById('scamdefender-banner-style');
+      expect(styleAfterDismiss).toBeNull();
+    });
+
+    test('See Details button sends OPEN_POPUP message', () => {
+      contentScriptModule.injectWarningBanner(75, 'HIGH');
+
+      const detailsBtn = document.getElementById('scamdefender-details-btn');
+      expect(detailsBtn).not.toBeNull();
+
+      // Click details button
+      detailsBtn.click();
+
+      // Check that chrome.runtime.sendMessage was called with OPEN_POPUP
+      expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({ type: 'OPEN_POPUP' });
+    });
+
+    test('injects CSS style with banner', () => {
+      contentScriptModule.injectWarningBanner(75, 'HIGH');
+
+      const style = document.getElementById('scamdefender-banner-style');
+      expect(style).not.toBeNull();
+      expect(style.textContent).toContain('#scamdefender-banner');
+      expect(style.textContent).toContain('position: fixed');
+      expect(style.textContent).toContain('z-index: 2147483647');
+    });
+
+    test('banner contains all required elements', () => {
+      contentScriptModule.injectWarningBanner(75, 'HIGH');
+
+      const banner = document.getElementById('scamdefender-banner');
+      expect(banner).not.toBeNull();
+
+      // Check for icon (emoji)
+      expect(banner.textContent).toContain('⚠️');
+
+      // Check for details button
+      const detailsBtn = document.getElementById('scamdefender-details-btn');
+      expect(detailsBtn).not.toBeNull();
+      expect(detailsBtn.textContent).toBe('See Details');
+
+      // Check for dismiss button
+      const dismissBtn = document.getElementById('scamdefender-dismiss-btn');
+      expect(dismissBtn).not.toBeNull();
+      expect(dismissBtn.textContent).toBe('✕');
+    });
+
+    test('banner is inserted at the top of body', () => {
+      const dom = new JSDOM(`
+        <!DOCTYPE html>
+        <html>
+          <head></head>
+          <body>
+            <div id="existing-content">Existing content</div>
+          </body>
+        </html>
+      `);
+      global.document = dom.window.document;
+
+      contentScriptModule.injectWarningBanner(75, 'HIGH');
+
+      const banner = document.getElementById('scamdefender-banner');
+      expect(banner).not.toBeNull();
+      expect(document.body.firstChild).toBe(banner);
     });
   });
 });

@@ -1,15 +1,12 @@
-// ScamDefender Service Worker
+// ScamShield Service Worker
 // Handles background tasks and event listeners for the extension
 
-import { extractDomain, isCheckableUrl, isHttps } from '../utils/url.js';
-import { isTrusted } from '../utils/whitelist.js';
-import { getCached, setCached } from '../utils/cache.js';
-import { getDomainAge } from '../utils/rdap.js';
-import { checkSafeBrowsing } from '../utils/safebrowsing.js';
-import { calculateRiskScore } from '../utils/scoring.js';
-import { getRiskLabel, getBadgeText } from '../utils/risk.js';
 import { getTrustpilotData } from '../utils/trustpilot.js';
+import { calculateRiskScore } from '../utils/scoring.js';
 import { analyzeWithAI } from '../utils/ai.js';
+
+// Cache TTL: 24 hours in milliseconds
+const CACHE_TTL = 24 * 60 * 60 * 1000;
 
 /**
  * Deobfuscate API key (XOR symmetric operation)
@@ -23,226 +20,288 @@ function deobfuscate(str) {
   ).join('');
 }
 
+// Whitelist of trusted domains (bypass all checks)
+const WHITELIST = [
+  'google.com',
+  'youtube.com',
+  'facebook.com',
+  'amazon.com',
+  'twitter.com',
+  'github.com',
+  'stackoverflow.com',
+  'wikipedia.org',
+  'reddit.com',
+  'linkedin.com'
+];
+
+/**
+ * Extract domain from URL
+ * @param {string} url - Full URL
+ * @returns {string|null} - Domain or null if invalid
+ */
+function extractDomain(url) {
+  try {
+    const urlObj = new URL(url);
+    return urlObj.hostname.replace(/^www\./, '');
+  } catch (error) {
+    return null;
+  }
+}
+
+/**
+ * Check if domain is whitelisted
+ * @param {string} domain - Domain to check
+ * @param {string[]} userWhitelist - User-defined whitelist
+ * @returns {boolean} - True if whitelisted
+ */
+function isWhitelisted(domain, userWhitelist = []) {
+  const allWhitelisted = [...WHITELIST, ...userWhitelist];
+  return allWhitelisted.some(trusted =>
+    domain === trusted || domain.endsWith(`.${trusted}`)
+  );
+}
+
+/**
+ * Check if URL uses HTTPS
+ * @param {string} url - Full URL
+ * @returns {boolean} - True if HTTP (not HTTPS)
+ */
+function isNotHttps(url) {
+  try {
+    const urlObj = new URL(url);
+    return urlObj.protocol === 'http:';
+  } catch (error) {
+    return false;
+  }
+}
+
+/**
+ * Get domain age from RDAP (placeholder for Phase 1)
+ * @param {string} domain - Domain to check
+ * @returns {Promise<number>} - Domain age in days, -1 if unknown
+ */
+// eslint-disable-next-line no-unused-vars
+async function getDomainAge(domain) {
+  // TODO: Implement RDAP lookup in Phase 1
+  // For now, return -1 (unknown)
+  return -1;
+}
+
+/**
+ * Check Google Safe Browsing (placeholder for Phase 2)
+ * @param {string} url - URL to check
+ * @returns {Promise<boolean>} - True if flagged
+ */
+// eslint-disable-next-line no-unused-vars
+async function checkSafeBrowsing(url) {
+  // TODO: Implement Google Safe Browsing API in Phase 2
+  // For now, return false (not flagged)
+  return false;
+}
+
+/**
+ * Get cached result for domain
+ * @param {string} domain - Domain to check
+ * @returns {Promise<Object|null>} - Cached result or null
+ */
+async function getCachedResult(domain) {
+  const cacheKey = `cache_${domain}`;
+  const result = await chrome.storage.local.get(cacheKey);
+
+  if (result[cacheKey]) {
+    const { data, timestamp } = result[cacheKey];
+    const age = Date.now() - timestamp;
+
+    // Check if cache is still valid (within 24 hours)
+    if (age < CACHE_TTL) {
+      console.log(`Cache hit for ${domain} (age: ${Math.round(age / 1000 / 60)} minutes)`);
+      return data;
+    } else {
+      console.log(`Cache expired for ${domain}`);
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Store result in cache
+ * @param {string} domain - Domain
+ * @param {Object} data - Result data
+ */
+async function cacheResult(domain, data) {
+  const cacheKey = `cache_${domain}`;
+  await chrome.storage.local.set({
+    [cacheKey]: {
+      data,
+      timestamp: Date.now()
+    }
+  });
+  console.log(`Cached result for ${domain}`);
+}
+
+/**
+ * Update extension badge based on risk score
+ * @param {number} tabId - Tab ID
+ * @param {number} score - Risk score 0-100
+ */
+function updateBadge(tabId, score) {
+  let badgeColor;
+  let badgeText;
+
+  if (score >= 70) {
+    badgeColor = '#DC2626'; // Red
+    badgeText = 'HIGH';
+  } else if (score >= 40) {
+    badgeColor = '#F59E0B'; // Orange
+    badgeText = 'MED';
+  } else if (score >= 20) {
+    badgeColor = '#FBBF24'; // Yellow
+    badgeText = 'LOW';
+  } else {
+    badgeColor = '#10B981'; // Green
+    badgeText = 'SAFE';
+  }
+
+  chrome.action.setBadgeText({ tabId, text: badgeText });
+  chrome.action.setBadgeBackgroundColor({ tabId, color: badgeColor });
+}
+
+/**
+ * Check if URL is a shopping page
+ * @param {string} url - URL to check
+ * @returns {boolean} - True if shopping page
+ */
+function isShoppingPage(url) {
+  const shoppingPatterns = ['/cart', '/checkout', '/product', '/shop', '/buy', '/order'];
+  const urlLower = url.toLowerCase();
+  return shoppingPatterns.some(pattern => urlLower.includes(pattern));
+}
+
+/**
+ * Analyze a tab's URL for scam indicators
+ * @param {number} tabId - Tab ID
+ * @param {string} url - Tab URL
+ */
+async function analyzeTab(tabId, url) {
+  const domain = extractDomain(url);
+
+  if (!domain) {
+    console.log('Invalid URL, skipping analysis');
+    return;
+  }
+
+  // Skip analysis for internal/extension pages
+  if (url.startsWith('chrome://') || url.startsWith('chrome-extension://')) {
+    return;
+  }
+
+  console.log(`Analyzing tab ${tabId}: ${domain}`);
+
+  // Get settings
+  const settings = await chrome.storage.local.get(['scanMode', 'userWhitelist']);
+  const scanMode = settings.scanMode || 'all';
+  const userWhitelistStr = settings.userWhitelist || '';
+  const userWhitelist = userWhitelistStr.split('\n').map(d => d.trim()).filter(d => d.length > 0);
+
+  // Check scan mode
+  if (scanMode === 'shopping' && !isShoppingPage(url)) {
+    console.log(`Scan mode is 'shopping' but URL is not a shopping page, skipping analysis`);
+    return;
+  }
+
+  // Check whitelist
+  if (isWhitelisted(domain, userWhitelist)) {
+    console.log(`Domain ${domain} is whitelisted, skipping analysis`);
+    const result = {
+      domain,
+      url,
+      whitelisted: true,
+      score: 0,
+      signals: {},
+      timestamp: Date.now()
+    };
+
+    await chrome.storage.local.set({ [`result_${tabId}`]: result });
+    updateBadge(tabId, 0);
+    return;
+  }
+
+  // Check cache
+  const cached = await getCachedResult(domain);
+  if (cached) {
+    const result = {
+      ...cached,
+      url,
+      fromCache: true,
+      timestamp: Date.now()
+    };
+
+    await chrome.storage.local.set({ [`result_${tabId}`]: result });
+    updateBadge(tabId, cached.score);
+    return;
+  }
+
+  // Perform all checks in parallel
+  const [domainAgeDays, safeBrowsingFlagged, trustpilot] = await Promise.all([
+    getDomainAge(domain),
+    checkSafeBrowsing(url),
+    getTrustpilotData(domain)
+  ]);
+
+  const noHttps = isNotHttps(url);
+
+  // Build signals object
+  const signals = {
+    domainAgeDays,
+    safeBrowsingFlagged,
+    noHttps,
+    trustpilot
+  };
+
+  // Calculate initial score (before content scan)
+  const score = calculateRiskScore(signals);
+
+  const result = {
+    domain,
+    url,
+    whitelisted: false,
+    score,
+    signals,
+    timestamp: Date.now()
+  };
+
+  // Store result
+  await chrome.storage.local.set({ [`result_${tabId}`]: result });
+
+  // Cache result
+  await cacheResult(domain, result);
+
+  // Update badge
+  updateBadge(tabId, score);
+
+  console.log(`Analysis complete for ${domain}: score=${score}`, signals);
+}
+
 // Install event listener
 chrome.runtime.onInstalled.addListener(() => {
-  console.log("ScamDefender service worker installed");
+  console.log("ScamShield service worker installed");
 });
-
-/**
- * Updates the extension badge for a given tab.
- * @param {number} tabId - The ID of the tab to update
- * @param {string} text - The badge text to display
- * @param {string} color - The badge background color
- */
-async function updateBadge(tabId, text, color) {
-  await chrome.action.setBadgeText({ tabId, text });
-  await chrome.action.setBadgeBackgroundColor({ tabId, color });
-}
-
-/**
- * Main function to check a URL for scam indicators.
- * @param {number} tabId - The ID of the tab being checked
- * @param {string} url - The URL to check
- */
-async function checkUrl(tabId, url) {
-  try {
-    console.log('[ScamDefender] Checking URL:', url);
-
-    // Step 1: Extract domain from URL
-    const domain = extractDomain(url);
-    console.log('[ScamDefender] Extracted domain:', domain);
-
-    // Step 2: Skip if not checkable
-    if (!isCheckableUrl(url)) {
-      console.log('[ScamDefender] URL is not checkable, skipping');
-      return;
-    }
-
-    // Step 3: Check if domain is trusted
-    if (isTrusted(domain)) {
-      console.log('[ScamDefender] Domain is trusted, setting safe badge');
-      await updateBadge(tabId, '✓', '#00b894');
-
-      // Store result for popup
-      await chrome.storage.local.set({
-        current_result: {
-          domain,
-          url,
-          score: 0,
-          label: 'SAFE',
-          trusted: true,
-          timestamp: Date.now()
-        }
-      });
-      return;
-    }
-
-    // Step 4: Check cache
-    const cached = await getCached(domain);
-    if (cached) {
-      console.log('[ScamDefender] Using cached result:', cached);
-      const { color } = getRiskLabel(cached.score);
-      const badgeText = getBadgeText(cached.score);
-      await updateBadge(tabId, badgeText, color);
-
-      // Update current result for popup
-      await chrome.storage.local.set({
-        current_result: {
-          ...cached,
-          domain,
-          url,
-          timestamp: Date.now()
-        }
-      });
-      return;
-    }
-
-    // Step 5: Read Safe Browsing API key from storage
-    const storage = await chrome.storage.local.get('safe_browsing_key');
-    const apiKey = storage.safe_browsing_key;
-
-    if (!apiKey) {
-      console.warn('[ScamDefender] No Safe Browsing API key configured');
-      // Continue without Safe Browsing check
-    }
-
-    // Step 6: Run domain age, Safe Browsing, and Trustpilot checks in parallel
-    console.log('[ScamDefender] Running API checks in parallel...');
-    const [domainAgeDays, safeBrowsingFlagged, trustpilot] = await Promise.all([
-      getDomainAge(domain),
-      apiKey ? checkSafeBrowsing(url, apiKey) : Promise.resolve(false),
-      getTrustpilotData(domain)
-    ]);
-
-    console.log('[ScamDefender] Domain age (days):', domainAgeDays);
-    console.log('[ScamDefender] Safe Browsing flagged:', safeBrowsingFlagged);
-    console.log('[ScamDefender] Trustpilot data:', trustpilot);
-
-    // Step 7: Check HTTPS
-    const noHttps = !isHttps(url);
-    console.log('[ScamDefender] No HTTPS:', noHttps);
-
-    // Step 8: Calculate risk score with all signals
-    const score = calculateRiskScore({
-      domainAgeDays,
-      safeBrowsingFlagged,
-      noHttps,
-      trustpilot
-    });
-    console.log('[ScamDefender] Calculated risk score:', score);
-
-    // Step 9: Store result in cache (24 hour TTL)
-    const result = {
-      score,
-      domainAgeDays,
-      safeBrowsingFlagged,
-      noHttps,
-      trustpilot,
-      checkedAt: Date.now()
-    };
-    await setCached(domain, result, 24);
-    console.log('[ScamDefender] Result cached for 24 hours');
-
-    // Step 10: Update badge
-    const { label, color } = getRiskLabel(score);
-    const badgeText = getBadgeText(score);
-    await updateBadge(tabId, badgeText, color);
-    console.log('[ScamDefender] Badge updated:', { label, badgeText, color });
-
-    // Step 11: Store current result for popup
-    await chrome.storage.local.set({
-      current_result: {
-        domain,
-        url,
-        score,
-        label,
-        domainAgeDays,
-        safeBrowsingFlagged,
-        noHttps,
-        trustpilot,
-        timestamp: Date.now()
-      }
-    });
-    console.log('[ScamDefender] Current result stored for popup');
-
-    // Step 12: Run AI analysis in background (non-blocking)
-    runAIAnalysisInBackground(domain, url, tabId, {
-      domainAgeDays,
-      safeBrowsingFlagged,
-      noHttps,
-      trustpilot
-    });
-
-  } catch (error) {
-    console.error('[ScamDefender] Error checking URL:', error);
-    // Set error badge
-    await updateBadge(tabId, '?', '#95a5a6');
-  }
-}
-
-/**
- * Run AI analysis in the background (non-blocking)
- * @param {string} domain - Domain name
- * @param {string} url - Full URL
- * @param {number} tabId - Tab ID
- * @param {Object} signals - Current signals
- */
-async function runAIAnalysisInBackground(domain, url, tabId, signals) {
-  try {
-    // Get Gemini API key from storage
-    const storage = await chrome.storage.local.get('gemini_api_key');
-    const obfuscatedKey = storage.gemini_api_key;
-
-    if (!obfuscatedKey) {
-      console.log('[ScamDefender] No Gemini API key configured, skipping AI analysis');
-      return;
-    }
-
-    // Deobfuscate the API key
-    const apiKey = deobfuscate(obfuscatedKey);
-
-    // Get page excerpts from content scan if available
-    const result = await chrome.storage.local.get('current_result');
-    const pageExcerpts = result.current_result?.pageExcerpts || {};
-
-    console.log('[ScamDefender] Running AI analysis...');
-    const aiResult = await analyzeWithAI(signals, pageExcerpts, apiKey);
-
-    if (aiResult) {
-      console.log('[ScamDefender] AI analysis completed:', aiResult);
-
-      // Update current result with AI analysis
-      const currentResult = await chrome.storage.local.get('current_result');
-      if (currentResult.current_result) {
-        await chrome.storage.local.set({
-          current_result: {
-            ...currentResult.current_result,
-            aiResult,
-            aiAnalysisCompleted: true
-          }
-        });
-
-        // Update cache with AI result
-        await setCached(domain, {
-          ...currentResult.current_result,
-          aiResult
-        }, 24);
-      }
-    }
-  } catch (error) {
-    console.error('[ScamDefender] Error running AI analysis:', error);
-  }
-}
 
 // Tab update event listener
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status === 'complete' && tab.url) {
-    checkUrl(tabId, tab.url);
+    analyzeTab(tabId, tab.url);
   }
 });
 
-// Message listener for content script results
+// Message listener for content script results and OPEN_POPUP
 chrome.runtime.onMessage.addListener((message, sender) => {
+  if (message.type === 'OPEN_POPUP') {
+    chrome.action.openPopup();
+    return;
+  }
+
   if (message.type === 'CONTENT_SCAN_RESULT') {
     console.log("Content scan result received:", message.data);
 
@@ -250,54 +309,137 @@ chrome.runtime.onMessage.addListener((message, sender) => {
     if (sender.tab && sender.tab.id) {
       const tabId = sender.tab.id;
 
-      // Get current tab's analysis result
-      chrome.storage.local.get(['current_result'], async (items) => {
-        const currentResult = items.current_result;
+      // Get current tab's analysis result and settings
+      chrome.storage.local.get([`result_${tabId}`, 'scanMode'], async (items) => {
+        const currentResult = items[`result_${tabId}`];
+        const scanMode = items.scanMode || 'all';
+
+        // Check if we should process this based on scan mode
+        if (scanMode === 'shopping' && sender.tab && sender.tab.url) {
+          const hasShoppingUrl = isShoppingPage(sender.tab.url);
+          const hasPrice = message.data.pageExcerpts && /\$(\d+)(?:\.\d{2})?/.test(
+            message.data.pageExcerpts.priceText || ''
+          );
+
+          if (!hasShoppingUrl && !hasPrice) {
+            console.log('Scan mode is shopping but page is not a shopping page, skipping content scan');
+            return;
+          }
+        }
 
         if (!currentResult) {
           console.warn(`No analysis result found for tab ${tabId}`);
           return;
         }
 
-        // Add content scan data to the result
+        // Extract page excerpts from content scan data
+        const { pageExcerpts, ...contentScanFlags } = message.data;
+
+        // Add content scan data to signals
         const updatedSignals = {
-          domainAgeDays: currentResult.domainAgeDays,
-          safeBrowsingFlagged: currentResult.safeBrowsingFlagged,
-          noHttps: currentResult.noHttps,
-          trustpilot: currentResult.trustpilot,
-          contentScan: message.data
+          ...currentResult.signals,
+          contentScan: contentScanFlags
         };
 
-        // Recalculate score with all signals including content scan
+        // Recalculate score with all signals
         const newScore = calculateRiskScore(updatedSignals);
 
-        // Update result
+        // Update result with content scan
         const updatedResult = {
           ...currentResult,
-          ...updatedSignals,
+          signals: updatedSignals,
           score: newScore,
           contentScanCompleted: true,
-          pageExcerpts: message.pageExcerpts,
           timestamp: Date.now()
         };
 
-        // Store updated result
-        await chrome.storage.local.set({ current_result: updatedResult });
+        // Store updated result (don't wait for AI)
+        await chrome.storage.local.set({ [`result_${tabId}`]: updatedResult });
 
-        // Update cache with content scan data if not trusted
-        if (!currentResult.trusted) {
-          await setCached(currentResult.domain, updatedResult, 24);
+        // Update cache with content scan data
+        if (!currentResult.whitelisted && !currentResult.fromCache) {
+          await cacheResult(currentResult.domain, updatedResult);
         }
 
-        // Update badge with new score
-        const { color } = getRiskLabel(newScore);
-        const badgeText = getBadgeText(newScore);
-        await updateBadge(tabId, badgeText, color);
+        // Update badge with new score (don't wait for AI)
+        updateBadge(tabId, newScore);
 
         console.log(`Updated analysis for tab ${tabId} with content scan: score=${newScore}`, updatedSignals);
 
-        // Trigger AI analysis with updated signals and page excerpts
-        runAIAnalysisInBackground(currentResult.domain, currentResult.url, tabId, updatedSignals);
+        // Show banner if score >= 70 and bannerEnabled
+        chrome.storage.local.get(['bannerEnabled'], (settings) => {
+          const bannerEnabled = settings.bannerEnabled !== undefined ? settings.bannerEnabled : true;
+
+          if (newScore >= 70 && bannerEnabled) {
+            const label = newScore >= 85 ? 'CRITICAL' : 'HIGH';
+            chrome.tabs.sendMessage(tabId, {
+              type: 'SHOW_BANNER',
+              score: newScore,
+              label: label
+            }).catch((err) => {
+              console.log('Failed to send SHOW_BANNER message:', err);
+            });
+          }
+        });
+
+        // Try to get AI analysis (non-blocking)
+        chrome.storage.local.get(['gemini_api_key'], async (keyData) => {
+          const obfuscatedKey = keyData.gemini_api_key;
+
+          if (!obfuscatedKey) {
+            console.log('No Gemini API key configured, skipping AI analysis');
+            return;
+          }
+
+          const apiKey = deobfuscate(obfuscatedKey);
+
+          if (!apiKey) {
+            console.log('Failed to deobfuscate Gemini API key');
+            return;
+          }
+
+          console.log('Running AI analysis...');
+          const aiResult = await analyzeWithAI(updatedSignals, pageExcerpts || {}, apiKey);
+
+          if (aiResult) {
+            console.log('AI analysis complete:', aiResult);
+          } else {
+            console.log('AI analysis returned null (error or timeout)');
+          }
+
+          // Store AI result alongside existing data
+          const resultWithAI = {
+            ...updatedResult,
+            aiResult,
+            aiAnalysisCompleted: true
+          };
+
+          await chrome.storage.local.set({ [`result_${tabId}`]: resultWithAI });
+
+          // Update cache with AI result
+          if (!currentResult.whitelisted && !currentResult.fromCache) {
+            await cacheResult(currentResult.domain, resultWithAI);
+          }
+
+          // Check if AI analysis changes the score significantly and update banner if needed
+          if (aiResult && aiResult.score !== undefined) {
+            const finalScore = aiResult.score;
+            chrome.storage.local.get(['bannerEnabled'], (settings) => {
+              const bannerEnabled = settings.bannerEnabled !== undefined ? settings.bannerEnabled : true;
+
+              if (finalScore >= 70 && bannerEnabled && finalScore !== newScore) {
+                const label = finalScore >= 85 ? 'CRITICAL' : 'HIGH';
+                chrome.tabs.sendMessage(tabId, {
+                  type: 'SHOW_BANNER',
+                  score: finalScore,
+                  label: label
+                }).catch((err) => {
+                  console.log('Failed to send SHOW_BANNER message after AI:', err);
+                });
+              }
+            });
+          }
+        });
       });
     }
   }

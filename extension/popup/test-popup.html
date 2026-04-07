@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScamDefender Popup Test</title>
+    <link rel="stylesheet" href="popup.css">
+    <style>
+        body {
+            display: flex;
+            gap: 20px;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .test-container {
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .test-title {
+            text-align: center;
+            margin-bottom: 10px;
+            font-weight: bold;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <!-- Test 1: Trusted Site -->
+    <div class="test-container">
+        <div class="test-title">Trusted Site (Score 0)</div>
+        <div class="container">
+            <div class="header">
+                <div class="logo-section">
+                    <span class="shield-icon">🛡️</span>
+                    <span class="app-name">ScamDefender</span>
+                </div>
+                <button class="settings-btn">⚙️</button>
+            </div>
+            <div class="domain-bar">
+                <span>amazon.com</span>
+            </div>
+            <div class="trusted-badge">
+                <div class="badge-icon">✓</div>
+                <div class="badge-text">Trusted Site</div>
+                <div class="badge-description">This domain is on our whitelist</div>
+            </div>
+            <div class="external-links">
+                <a href="#" class="external-link">View on Trustpilot</a>
+                <span class="link-separator">•</span>
+                <a href="#" class="external-link">Check on ScamAdviser</a>
+            </div>
+            <div class="report-section">
+                <a href="#" class="report-link">Report this site</a>
+            </div>
+            <div class="footer">
+                <span>ScamDefender v1.0</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Test 2: Medium Risk -->
+    <div class="test-container">
+        <div class="test-title">Medium Risk (Score 45)</div>
+        <div class="container">
+            <div class="header">
+                <div class="logo-section">
+                    <span class="shield-icon">🛡️</span>
+                    <span class="app-name">ScamDefender</span>
+                </div>
+                <button class="settings-btn">⚙️</button>
+            </div>
+            <div class="domain-bar">
+                <span>example-shop.com</span>
+            </div>
+            <div class="score-section">
+                <div class="score-gauge">
+                    <div class="gauge-fill" style="width: 45%; background-color: var(--color-medium);"></div>
+                </div>
+                <div class="score-number risk-medium">45</div>
+                <div class="risk-label risk-medium">Medium Risk</div>
+            </div>
+            <div class="signals-section">
+                <h2 class="section-title">Security Signals</h2>
+                <div class="signals-list">
+                    <div class="signal-row">
+                        <div class="signal-icon pass">✓</div>
+                        <div class="signal-content">
+                            <div class="signal-name">HTTPS Encryption</div>
+                            <div class="signal-value">Uses secure HTTPS encryption</div>
+                        </div>
+                        <div class="signal-points">+0</div>
+                    </div>
+                    <div class="signal-row">
+                        <div class="signal-icon fail">✗</div>
+                        <div class="signal-content">
+                            <div class="signal-name">Domain Age</div>
+                            <div class="signal-value">Only 45 days old (very new)</div>
+                        </div>
+                        <div class="signal-points">+22</div>
+                    </div>
+                    <div class="signal-row">
+                        <div class="signal-icon pass">✓</div>
+                        <div class="signal-content">
+                            <div class="signal-name">Google Safe Browsing</div>
+                            <div class="signal-value">No threats detected by Google</div>
+                        </div>
+                        <div class="signal-points">+0</div>
+                    </div>
+                    <div class="signal-row">
+                        <div class="signal-icon pass">✓</div>
+                        <div class="signal-content">
+                            <div class="signal-name">Trustpilot Rating</div>
+                            <div class="signal-value">Not found on Trustpilot</div>
+                        </div>
+                        <div class="signal-points">+0</div>
+                    </div>
+                    <div class="signal-row">
+                        <div class="signal-icon fail">✗</div>
+                        <div class="signal-content">
+                            <div class="signal-name">Page Content Scan</div>
+                            <div class="signal-value">2 suspicious patterns found</div>
+                            <div class="signal-subitems">
+                                <div class="signal-subitem">No physical address</div>
+                                <div class="signal-subitem">No phone number</div>
+                            </div>
+                        </div>
+                        <div class="signal-points">+10</div>
+                    </div>
+                </div>
+            </div>
+            <div class="footer">
+                <span>ScamDefender v1.0</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Test 3: High Risk with AI -->
+    <div class="test-container">
+        <div class="test-title">High Risk (Score 72)</div>
+        <div class="container">
+            <div class="header">
+                <div class="logo-section">
+                    <span class="shield-icon">🛡️</span>
+                    <span class="app-name">ScamDefender</span>
+                </div>
+                <button class="settings-btn">⚙️</button>
+            </div>
+            <div class="domain-bar">
+                <span>suspicious-deals.xyz</span>
+            </div>
+            <div class="score-section">
+                <div class="score-gauge">
+                    <div class="gauge-fill" style="width: 72%; background-color: var(--color-high);"></div>
+                </div>
+                <div class="score-number risk-high">72</div>
+                <div class="risk-label risk-high">High Risk</div>
+            </div>
+            <div class="what-to-do-section">
+                <h2 class="section-title warning">⚠️ What to do</h2>
+                <ul class="action-list">
+                    <li>Do not enter payment information or personal details</li>
+                    <li>Verify the company through independent sources</li>
+                    <li>Report to <a href="https://reportfraud.ftc.gov" target="_blank">reportfraud.ftc.gov</a> if you suspect fraud</li>
+                </ul>
+            </div>
+            <div class="ai-section">
+                <h2 class="section-title">AI Analysis</h2>
+                <div class="ai-verdict-card">
+                    <div class="ai-confidence">Confidence: 87%</div>
+                    <div class="ai-red-flags">
+                        <div class="ai-red-flags-title">AI-Detected Concerns:</div>
+                        <ul class="ai-red-flags-list">
+                            <li>Unrealistic discounts (80% off luxury items)</li>
+                            <li>Poor grammar and spelling errors</li>
+                            <li>Pressure tactics ("Limited time only!")</li>
+                        </ul>
+                    </div>
+                    <div class="ai-verdict-text">
+                        This site exhibits multiple red flags commonly associated with fraudulent e-commerce operations. The combination of a new domain, lack of contact information, and aggressive pricing suggests potential scam activity.
+                    </div>
+                </div>
+            </div>
+            <div class="external-links">
+                <a href="#" class="external-link">View on Trustpilot</a>
+                <span class="link-separator">•</span>
+                <a href="#" class="external-link">Check on ScamAdviser</a>
+            </div>
+            <div class="report-section">
+                <a href="#" class="report-link">Report this site</a>
+            </div>
+            <div class="footer">
+                <span>ScamDefender v1.0</span>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

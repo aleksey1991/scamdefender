@@ -48,17 +48,49 @@
             margin-bottom: 5px;
             color: #555;
         }
-        input[type="password"] {
+        input[type="password"],
+        textarea {
             width: 100%;
             padding: 10px;
             font-size: 14px;
             border: 1px solid #ddd;
             border-radius: 4px;
             box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
         }
-        input[type="password"]:focus {
+        input[type="password"]:focus,
+        textarea:focus {
             outline: none;
             border-color: #4CAF50;
+        }
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            margin: 15px 0;
+            cursor: pointer;
+        }
+        .checkbox-label input[type="checkbox"] {
+            width: auto;
+            margin-right: 10px;
+            cursor: pointer;
+        }
+        .radio-group {
+            margin: 10px 0;
+        }
+        .radio-label {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+            cursor: pointer;
+        }
+        .radio-label input[type="radio"] {
+            width: auto;
+            margin-right: 10px;
+            cursor: pointer;
         }
         .helper-text {
             font-size: 12px;
@@ -128,6 +160,39 @@
             <input type="password" id="safe-browsing-key" placeholder="Paste your Safe Browsing API key">
             <div class="helper-text">
                 Required for domain reputation checks
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Protection Settings</h2>
+
+            <label class="checkbox-label">
+                <input type="checkbox" id="banner-enabled" checked>
+                <span>Show warning banner on high-risk sites</span>
+            </label>
+
+            <label for="scan-mode-label">Scan mode:</label>
+            <div class="radio-group">
+                <label class="radio-label">
+                    <input type="radio" id="scan-mode-all" name="scanMode" value="all" checked>
+                    <span>Scan all websites</span>
+                </label>
+                <label class="radio-label">
+                    <input type="radio" id="scan-mode-shopping" name="scanMode" value="shopping">
+                    <span>Scan shopping sites only</span>
+                </label>
+            </div>
+            <div class="helper-text">
+                Shopping detection: URLs with /cart, /checkout, /product, /shop, /buy, /order OR pages with prices
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Trusted Domains</h2>
+            <label for="user-whitelist">Always trust these domains (one per line):</label>
+            <textarea id="user-whitelist" placeholder="example.com&#10;anotherdomain.org" rows="5"></textarea>
+            <div class="helper-text">
+                These domains will skip all security checks
             </div>
         </div>
 
