@@ -1,4 +1,4 @@
-# ScamShield
+# ScamDefender
 AI-powered scam website detector Chrome extension.
 
 ## Structure

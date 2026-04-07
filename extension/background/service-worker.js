@@ -1,9 +1,9 @@
-// ScamShield Service Worker
+// ScamDefender Service Worker
 // Handles background tasks and event listeners for the extension
 
 // Install event listener
 chrome.runtime.onInstalled.addListener(() => {
-  console.log("ScamShield service worker installed");
+  console.log("ScamDefender service worker installed");
 });
 
 // Tab update event listener
