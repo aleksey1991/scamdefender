@@ -1,6 +1,6 @@
-# ScamShield Phase Completion Log
+# ScamDefender Phase Completion Log
 
-This document tracks the completion status of all development phases for the ScamShield Chrome extension.
+This document tracks the completion status of all development phases for the ScamDefender Chrome extension.
 
 ---
 
@@ -8,7 +8,7 @@ This document tracks the completion status of all development phases for the Sca
 **Status**: ✅ COMPLETED
 **Completion Date**: 2026-04-06
 **Branch**: `feature/phase-0-skeleton`
-**PR**: [#1 - Phase 0: Chrome Extension Skeleton & CI Foundation](https://github.com/aleksey1991/scamshield/pull/1)
+**PR**: [#1 - Phase 0: Chrome Extension Skeleton & CI Foundation](https://github.com/aleksey1991/scamdefender/pull/1)
 
 ### Objectives
 Create a working Chrome extension skeleton with GitHub Actions CI fully wired up. No real functionality yet — just the structure, tooling, and CI pipeline.
@@ -169,7 +169,7 @@ All files   |     100 |      100 |     100 |     100
 
 | Phase | Status | Completion Date | PR |
 |-------|--------|----------------|-----|
-| Phase 0: Skeleton & CI | ✅ COMPLETED | 2026-04-06 | [#1](https://github.com/aleksey1991/scamshield/pull/1) |
+| Phase 0: Skeleton & CI | ✅ COMPLETED | 2026-04-06 | [#1](https://github.com/aleksey1991/scamdefender/pull/1) |
 | Phase 1: Domain Age (RDAP) | ⏳ NOT STARTED | - | - |
 | Phase 2: Google Safe Browsing | ⏳ NOT STARTED | - | - |
 | Phase 3: Trustpilot Ratings | ⏳ NOT STARTED | - | - |

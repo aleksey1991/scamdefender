@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "ScamShield",
+  "name": "ScamDefender",
   "version": "0.1.0",
   "description": "AI-powered scam website detector",
   "permissions": [
