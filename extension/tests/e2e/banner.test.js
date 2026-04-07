@@ -11,9 +11,6 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Skip if Puppeteer not installed
-const hasPuppeteer = true; // Will be set based on import success
-
 describe.skip('Banner E2E Tests (Puppeteer)', () => {
   let browser;
   let page;
