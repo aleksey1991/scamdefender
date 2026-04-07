@@ -249,12 +249,18 @@ scoring.js            |     100 |      100 |     100 |     100
 - `extension/utils/scoring.js`
 - `extension/manifest.json`
 
-**Created**: 6 files
-- `extension/modules/trustpilot.js`
-- `extension/modules/trustpilot.test.js`
-- `extension/content-scripts/content-script.js`
-- `extension/content-scripts/content-script.test.js`
-- Test fixtures (2 for Trustpilot, 4 for content script)
+**Created**: 10 files
+- `extension/utils/trustpilot.js`
+- `extension/utils/trustpilot.test.js`
+- `extension/content/content-script.js`
+- `extension/content/content-script.test.js`
+- Test fixtures:
+  - `extension/tests/fixtures/trustpilot-found.html`
+  - `extension/tests/fixtures/trustpilot-not-found.html`
+  - `extension/tests/fixtures/page-no-contact.html`
+  - `extension/tests/fixtures/page-with-contact.html`
+  - `extension/tests/fixtures/page-luxury-scam.html`
+  - `extension/tests/fixtures/page-bad-returns.html`
 
 ### Next Phase Prerequisites
 - Merge PR #4 to develop branch
