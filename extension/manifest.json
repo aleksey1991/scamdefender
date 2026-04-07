@@ -8,6 +8,10 @@
     "storage",
     "activeTab"
   ],
+  "host_permissions": [
+    "https://rdap.org/*",
+    "https://safebrowsing.googleapis.com/*"
+  ],
   "background": {
     "service_worker": "background/service-worker.js"
   },
