@@ -40,18 +40,41 @@
             </div>
 
             <!-- Signal Indicators -->
-            <div class="signals-section">
-                <div class="signal-item">
-                    <span id="domain-age-icon" class="signal-icon">✓</span>
-                    <span id="domain-age-text" class="signal-text">Domain Age: - days</span>
+            <div id="signals" class="signals">
+                <div class="signal-item" id="signal-https">
+                    <div class="signal-header">
+                        <span class="signal-icon">⏳</span>
+                        <span class="signal-name">HTTPS</span>
+                    </div>
+                    <div class="signal-value">Checking...</div>
                 </div>
-                <div class="signal-item">
-                    <span id="safe-browsing-icon" class="signal-icon">✓</span>
-                    <span id="safe-browsing-text" class="signal-text">Safe Browsing: Clean</span>
+                <div class="signal-item" id="signal-domain-age">
+                    <div class="signal-header">
+                        <span class="signal-icon">⏳</span>
+                        <span class="signal-name">Domain Age</span>
+                    </div>
+                    <div class="signal-value">Checking...</div>
                 </div>
-                <div class="signal-item">
-                    <span id="https-icon" class="signal-icon">✓</span>
-                    <span id="https-text" class="signal-text">HTTPS: Secure</span>
+                <div class="signal-item" id="signal-safe-browsing">
+                    <div class="signal-header">
+                        <span class="signal-icon">⏳</span>
+                        <span class="signal-name">Safe Browsing</span>
+                    </div>
+                    <div class="signal-value">Checking...</div>
+                </div>
+                <div class="signal-item" id="signal-trustpilot">
+                    <div class="signal-header">
+                        <span class="signal-icon">⏳</span>
+                        <span class="signal-name">Trustpilot</span>
+                    </div>
+                    <div class="signal-value">Checking...</div>
+                </div>
+                <div class="signal-item" id="signal-page-scan">
+                    <div class="signal-header">
+                        <span class="signal-icon">⏳</span>
+                        <span class="signal-name">Page Scan</span>
+                    </div>
+                    <div class="signal-value">Checking...</div>
                 </div>
             </div>
         </div>

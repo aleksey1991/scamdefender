@@ -1,5 +1,108 @@
 import { getRiskLabel } from '../utils/risk.js';
 
+/**
+ * Update a signal item's display
+ * @param {string} signalId - The signal element ID
+ * @param {boolean} pass - Whether the signal passed
+ * @param {string} value - The value to display
+ */
+function updateSignal(signalId, pass, value) {
+    const signalElement = document.getElementById(signalId);
+    if (!signalElement) return;
+
+    const iconElement = signalElement.querySelector('.signal-icon');
+    const valueElement = signalElement.querySelector('.signal-value');
+
+    // Update icon based on pass/fail
+    iconElement.textContent = pass ? '✓' : '✗';
+
+    // Update value
+    valueElement.textContent = value;
+
+    // Add pass/fail class
+    signalElement.classList.remove('pass', 'fail');
+    signalElement.classList.add(pass ? 'pass' : 'fail');
+}
+
+/**
+ * Get the red flag descriptions for display
+ * @param {Object} contentScan - The content scan results
+ * @returns {Array<string>} Array of red flag descriptions
+ */
+function getRedFlags(contentScan) {
+    const flags = [];
+    if (contentScan.noPhysicalAddress) {
+        flags.push('No physical address');
+    }
+    if (contentScan.noPhoneNumber) {
+        flags.push('No phone number');
+    }
+    if (contentScan.suspiciousReturnPolicy) {
+        flags.push('Suspicious return policy');
+    }
+    if (contentScan.suspiciousLuxuryPricing) {
+        flags.push('Suspicious luxury pricing');
+    }
+    return flags;
+}
+
+/**
+ * Display all signals in the popup
+ * @param {Object} result - The analysis result object
+ */
+function displaySignals(result) {
+    // 1. HTTPS Signal
+    const isHttps = !result.noHttps;
+    updateSignal('signal-https', isHttps, isHttps ? 'Secure' : 'Not Secure');
+
+    // 2. Domain Age Signal
+    if (result.domainAgeDays !== undefined) {
+        const days = result.domainAgeDays;
+        if (days === -1) {
+            updateSignal('signal-domain-age', false, 'Unknown');
+        } else {
+            const pass = days > 180;
+            updateSignal('signal-domain-age', pass, `${days} days`);
+        }
+    } else {
+        updateSignal('signal-domain-age', false, 'Unknown');
+    }
+
+    // 3. Safe Browsing Signal
+    const safeBrowsingFlagged = result.safeBrowsingFlagged === true;
+    updateSignal('signal-safe-browsing', !safeBrowsingFlagged, safeBrowsingFlagged ? 'Flagged' : 'Clean');
+
+    // 4. Trustpilot Signal
+    if (result.trustpilot) {
+        const { found, rating, reviewCount } = result.trustpilot;
+        if (found) {
+            const pass = rating >= 3.4 && reviewCount >= 10;
+            const displayValue = `${rating.toFixed(1)} ★ (${reviewCount} reviews)`;
+            updateSignal('signal-trustpilot', pass, displayValue);
+        } else {
+            // Not found is considered a pass (neutral)
+            updateSignal('signal-trustpilot', true, 'Not on Trustpilot');
+        }
+    } else {
+        updateSignal('signal-trustpilot', true, 'Not on Trustpilot');
+    }
+
+    // 5. Page Scan Signal
+    if (result.contentScan) {
+        const redFlags = getRedFlags(result.contentScan);
+        const pass = redFlags.length === 0;
+
+        if (pass) {
+            updateSignal('signal-page-scan', true, '0 red flags');
+        } else {
+            const flagsList = redFlags.join(', ');
+            updateSignal('signal-page-scan', false, `${redFlags.length} red flags: ${flagsList}`);
+        }
+    } else {
+        updateSignal('signal-page-scan', true, '0 red flags');
+    }
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     // Get UI elements
     const loadingState = document.getElementById('loading-state');
@@ -8,12 +111,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const domainName = document.getElementById('domain-name');
     const riskScore = document.getElementById('risk-score');
     const riskLabelEl = document.getElementById('risk-label');
-    const domainAgeIcon = document.getElementById('domain-age-icon');
-    const domainAgeText = document.getElementById('domain-age-text');
-    const safeBrowsingIcon = document.getElementById('safe-browsing-icon');
-    const safeBrowsingText = document.getElementById('safe-browsing-text');
-    const httpsIcon = document.getElementById('https-icon');
-    const httpsText = document.getElementById('https-text');
 
     try {
         // Query the active tab
@@ -35,7 +132,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             // Check if trusted domain
-            if (result.is_trusted) {
+            if (result.trusted) {
                 showTrustedSite();
                 return;
             }
@@ -70,70 +167,27 @@ document.addEventListener('DOMContentLoaded', async () => {
         domainName.textContent = result.domain || '-';
 
         // Display risk score
-        const score = result.risk_score || 0;
+        const score = result.score || 0;
         riskScore.textContent = score;
 
         // Display risk label with color
         const { label, color } = getRiskLabel(score);
         riskLabelEl.textContent = label;
-        riskLabelEl.style.color = color;
 
         // Add appropriate class for background color
         riskLabelEl.classList.remove('safe', 'caution', 'suspicious', 'danger');
-        riskLabelEl.classList.add(label.toLowerCase());
+        if (score < 30) {
+            riskLabelEl.classList.add('safe');
+        } else if (score < 60) {
+            riskLabelEl.classList.add('caution');
+        } else if (score < 80) {
+            riskLabelEl.classList.add('suspicious');
+        } else {
+            riskLabelEl.classList.add('danger');
+        }
 
-        // Display signal indicators
+        // Display all signals
         displaySignals(result);
-    }
-
-    function displaySignals(result) {
-        const signals = result.signals || {};
-
-        // Domain Age Signal
-        if (signals.domain_age !== undefined) {
-            const domainAge = signals.domain_age;
-            const isPassed = domainAge > 180; // Pass if domain is older than 180 days
-
-            domainAgeIcon.textContent = isPassed ? '✓' : '✗';
-            domainAgeIcon.classList.remove('pass', 'fail');
-            domainAgeIcon.classList.add(isPassed ? 'pass' : 'fail');
-            domainAgeText.textContent = `Domain Age: ${domainAge} days`;
-        } else {
-            domainAgeIcon.textContent = '✗';
-            domainAgeIcon.classList.remove('pass', 'fail');
-            domainAgeIcon.classList.add('fail');
-            domainAgeText.textContent = 'Domain Age: Unknown';
-        }
-
-        // Safe Browsing Signal
-        if (signals.safe_browsing !== undefined) {
-            const isSafe = signals.safe_browsing === true;
-
-            safeBrowsingIcon.textContent = isSafe ? '✓' : '✗';
-            safeBrowsingIcon.classList.remove('pass', 'fail');
-            safeBrowsingIcon.classList.add(isSafe ? 'pass' : 'fail');
-            safeBrowsingText.textContent = `Safe Browsing: ${isSafe ? 'Clean' : 'Flagged'}`;
-        } else {
-            safeBrowsingIcon.textContent = '✓';
-            safeBrowsingIcon.classList.remove('pass', 'fail');
-            safeBrowsingIcon.classList.add('pass');
-            safeBrowsingText.textContent = 'Safe Browsing: Clean';
-        }
-
-        // HTTPS Signal
-        if (signals.https !== undefined) {
-            const isSecure = signals.https === true;
-
-            httpsIcon.textContent = isSecure ? '✓' : '✗';
-            httpsIcon.classList.remove('pass', 'fail');
-            httpsIcon.classList.add(isSecure ? 'pass' : 'fail');
-            httpsText.textContent = `HTTPS: ${isSecure ? 'Secure' : 'Not Secure'}`;
-        } else {
-            httpsIcon.textContent = '✗';
-            httpsIcon.classList.remove('pass', 'fail');
-            httpsIcon.classList.add('fail');
-            httpsText.textContent = 'HTTPS: Not Secure';
-        }
     }
 
     function showError(message) {
