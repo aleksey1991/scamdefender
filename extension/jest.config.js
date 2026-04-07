@@ -3,7 +3,9 @@ export default {
   coverageDirectory: 'coverage',
   collectCoverageFrom: [
     'utils/**/*.js',
-    '!utils/**/*.test.js'
+    'content/**/*.js',
+    '!utils/**/*.test.js',
+    '!content/**/*.test.js'
   ],
   testMatch: ['**/*.test.js'],
   transform: {},
