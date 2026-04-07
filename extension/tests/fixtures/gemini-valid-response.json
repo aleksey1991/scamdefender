@@ -1,0 +1,9 @@
+{
+  "candidates": [{
+    "content": {
+      "parts": [{
+        "text": "{\"risk_level\":\"high\",\"confidence\":85,\"red_flags\":[\"Domain registered 3 weeks ago\",\"Not found on Trustpilot\"],\"verdict\":\"This site shows several hallmarks of a scam operation. The domain is extremely new and has no customer review history anywhere online. Exercise extreme caution before purchasing.\"}"
+      }]
+    }
+  }]
+}

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScamDefender Settings</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            max-width: 600px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            margin: 0 0 10px 0;
+            font-size: 24px;
+            color: #333;
+        }
+        .back-link {
+            color: #666;
+            text-decoration: none;
+            font-size: 14px;
+            display: inline-block;
+            margin-bottom: 20px;
+        }
+        .back-link:hover {
+            color: #333;
+        }
+        .section {
+            margin: 30px 0;
+        }
+        .section h2 {
+            font-size: 18px;
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 5px;
+            color: #555;
+        }
+        input[type="password"] {
+            width: 100%;
+            padding: 10px;
+            font-size: 14px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        input[type="password"]:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+        .helper-text {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+        .helper-text a {
+            color: #4CAF50;
+            text-decoration: none;
+        }
+        .helper-text a:hover {
+            text-decoration: underline;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 14px;
+            font-weight: 500;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button:active {
+            background: #3d8b40;
+        }
+        #status-message {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 14px;
+            display: none;
+        }
+        #status-message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        #status-message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="#" class="back-link" id="back-link">← Back to ScamDefender</a>
+        <h1>ScamDefender Settings</h1>
+
+        <div class="section">
+            <h2>AI Analysis (Optional)</h2>
+            <label for="gemini-key">Gemini API Key</label>
+            <input type="password" id="gemini-key" placeholder="Paste your Gemini API key">
+            <div class="helper-text">
+                Get a free key at <a href="https://aistudio.google.com" target="_blank">aistudio.google.com</a> — no credit card needed
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Safe Browsing API Key</h2>
+            <label for="safe-browsing-key">Google Safe Browsing API Key</label>
+            <input type="password" id="safe-browsing-key" placeholder="Paste your Safe Browsing API key">
+            <div class="helper-text">
+                Required for domain reputation checks
+            </div>
+        </div>
+
+        <button id="save-button">Save Settings</button>
+
+        <div id="status-message"></div>
+    </div>
+    <script src="options.js" type="module"></script>
+</body>
+</html>

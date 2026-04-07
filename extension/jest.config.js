@@ -4,8 +4,10 @@ export default {
   collectCoverageFrom: [
     'utils/**/*.js',
     'content/**/*.js',
+    'options/**/*.js',
     '!utils/**/*.test.js',
-    '!content/**/*.test.js'
+    '!content/**/*.test.js',
+    '!options/**/*.test.js'
   ],
   testMatch: ['**/*.test.js'],
   transform: {},
