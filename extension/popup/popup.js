@@ -171,7 +171,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         riskScore.textContent = score;
 
         // Display risk label with color
-        const { label, color } = getRiskLabel(score);
+        const { label } = getRiskLabel(score);
         riskLabelEl.textContent = label;
 
         // Add appropriate class for background color
