@@ -12,9 +12,50 @@
             <span class="shield-icon">🛡️</span>
             <h1>ScamDefender</h1>
         </div>
-        <div id="status">Analyzing...</div>
-        <div id="score"></div>
+
+        <!-- Loading State -->
+        <div id="loading-state" class="loading-state hidden">
+            <div class="spinner"></div>
+            <p>Analyzing...</p>
+        </div>
+
+        <!-- Trusted Site Indicator -->
+        <div id="trusted-indicator" class="trusted-indicator hidden">
+            <span class="trusted-icon">✓</span>
+            <span class="trusted-text">Trusted Site</span>
+        </div>
+
+        <!-- Main Content -->
+        <div id="main-content" class="main-content hidden">
+            <!-- Domain Name -->
+            <div class="domain-section">
+                <div class="domain-label">Domain</div>
+                <div id="domain-name" class="domain-name">-</div>
+            </div>
+
+            <!-- Risk Score -->
+            <div class="risk-score-section">
+                <div id="risk-score" class="risk-score">0</div>
+                <div id="risk-label" class="risk-label">SAFE</div>
+            </div>
+
+            <!-- Signal Indicators -->
+            <div class="signals-section">
+                <div class="signal-item">
+                    <span id="domain-age-icon" class="signal-icon">✓</span>
+                    <span id="domain-age-text" class="signal-text">Domain Age: - days</span>
+                </div>
+                <div class="signal-item">
+                    <span id="safe-browsing-icon" class="signal-icon">✓</span>
+                    <span id="safe-browsing-text" class="signal-text">Safe Browsing: Clean</span>
+                </div>
+                <div class="signal-item">
+                    <span id="https-icon" class="signal-icon">✓</span>
+                    <span id="https-text" class="signal-text">HTTPS: Secure</span>
+                </div>
+            </div>
+        </div>
     </div>
-    <script src="popup.js"></script>
+    <script type="module" src="popup.js"></script>
 </body>
 </html>

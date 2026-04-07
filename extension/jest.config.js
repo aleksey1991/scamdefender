@@ -7,5 +7,6 @@ export default {
   ],
   testMatch: ['**/*.test.js'],
   transform: {},
-  coverageReporters: ['json-summary', 'text', 'lcov']
+  coverageReporters: ['json-summary', 'text', 'lcov'],
+  injectGlobals: true
 };
