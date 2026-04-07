@@ -108,6 +108,66 @@ function checkSuspiciousLuxuryPricing() {
 }
 
 /**
+ * Extract text excerpt from "About Us" section
+ * @returns {string} First 500 chars of About Us text, or empty string if not found
+ */
+function extractAboutUsExcerpt() {
+  // Try multiple selectors for About Us section
+  const selectors = [
+    '#about',
+    '.about',
+    '[id*="about"]',
+    '[class*="about"]'
+  ];
+
+  for (const selector of selectors) {
+    try {
+      const element = document.querySelector(selector);
+      if (element) {
+        const text = element.innerText || element.textContent || '';
+        return text.trim().substring(0, 500);
+      }
+    } catch (e) {
+      // Continue to next selector if this one fails
+      continue;
+    }
+  }
+
+  return '';
+}
+
+/**
+ * Extract text excerpt from Return Policy section
+ * @returns {string} First 500 chars of return policy text, or empty string if not found
+ */
+function extractReturnPolicyExcerpt() {
+  // Try multiple selectors for Return Policy section
+  const selectors = [
+    '#returns',
+    '.returns',
+    '#refund',
+    '.refund',
+    '[id*="return"]',
+    '[id*="refund"]'
+  ];
+
+  for (const selector of selectors) {
+    try {
+      const element = document.querySelector(selector);
+      if (element) {
+        const text = element.innerText || element.textContent || '';
+        return text.trim().substring(0, 500);
+      }
+    } catch (e) {
+      // Continue to next selector if this one fails
+      continue;
+    }
+  }
+
+  return '';
+}
+
+/**
  * Run all scam detection checks and send results to background worker
  */
 function scanPage() {
@@ -118,10 +178,15 @@ function scanPage() {
     suspiciousLuxuryPricing: checkSuspiciousLuxuryPricing()
   };
 
+  const pageExcerpts = {
+    aboutUs: extractAboutUsExcerpt(),
+    returnPolicy: extractReturnPolicyExcerpt()
+  };
+
   // Send results to background service worker
   chrome.runtime.sendMessage({
     type: 'CONTENT_SCAN_RESULT',
-    data: results
+    data: { ...results, pageExcerpts }
   });
 }
 
@@ -141,5 +206,7 @@ export {
   checkSuspiciousReturnPolicy,
   checkSuspiciousLuxuryPricing,
   getPageText,
+  extractAboutUsExcerpt,
+  extractReturnPolicyExcerpt,
   scanPage
 };

@@ -1,0 +1,25 @@
+name: Integration Tests
+
+on:
+  pull_request:
+    branches: ['develop', 'main']
+
+jobs:
+  api-integration:
+    name: API Integration Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: extension
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+          cache-dependency-path: extension/package-lock.json
+      - run: npm ci
+      - run: npm test -- --testPathPattern=tests/integration --no-coverage
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          SAFE_BROWSING_KEY: ${{ secrets.GOOGLE_SAFE_BROWSING_KEY }}

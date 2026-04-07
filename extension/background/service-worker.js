@@ -9,6 +9,19 @@ import { checkSafeBrowsing } from '../utils/safebrowsing.js';
 import { calculateRiskScore } from '../utils/scoring.js';
 import { getRiskLabel, getBadgeText } from '../utils/risk.js';
 import { getTrustpilotData } from '../utils/trustpilot.js';
+import { analyzeWithAI } from '../utils/ai.js';
+
+/**
+ * Deobfuscate API key (XOR symmetric operation)
+ * @param {string} str - Obfuscated string
+ * @returns {string} - Deobfuscated string
+ */
+function deobfuscate(str) {
+  if (!str) return '';
+  return str.split('').map((c, i) =>
+    String.fromCharCode(c.charCodeAt(0) ^ (42 + i % 13))
+  ).join('');
+}
 
 // Install event listener
 chrome.runtime.onInstalled.addListener(() => {
@@ -152,10 +165,72 @@ async function checkUrl(tabId, url) {
     });
     console.log('[ScamDefender] Current result stored for popup');
 
+    // Step 12: Run AI analysis in background (non-blocking)
+    runAIAnalysisInBackground(domain, url, tabId, {
+      domainAgeDays,
+      safeBrowsingFlagged,
+      noHttps,
+      trustpilot
+    });
+
   } catch (error) {
     console.error('[ScamDefender] Error checking URL:', error);
     // Set error badge
     await updateBadge(tabId, '?', '#95a5a6');
+  }
+}
+
+/**
+ * Run AI analysis in the background (non-blocking)
+ * @param {string} domain - Domain name
+ * @param {string} url - Full URL
+ * @param {number} tabId - Tab ID
+ * @param {Object} signals - Current signals
+ */
+async function runAIAnalysisInBackground(domain, url, tabId, signals) {
+  try {
+    // Get Gemini API key from storage
+    const storage = await chrome.storage.local.get('gemini_api_key');
+    const obfuscatedKey = storage.gemini_api_key;
+
+    if (!obfuscatedKey) {
+      console.log('[ScamDefender] No Gemini API key configured, skipping AI analysis');
+      return;
+    }
+
+    // Deobfuscate the API key
+    const apiKey = deobfuscate(obfuscatedKey);
+
+    // Get page excerpts from content scan if available
+    const result = await chrome.storage.local.get('current_result');
+    const pageExcerpts = result.current_result?.pageExcerpts || {};
+
+    console.log('[ScamDefender] Running AI analysis...');
+    const aiResult = await analyzeWithAI(signals, pageExcerpts, apiKey);
+
+    if (aiResult) {
+      console.log('[ScamDefender] AI analysis completed:', aiResult);
+
+      // Update current result with AI analysis
+      const currentResult = await chrome.storage.local.get('current_result');
+      if (currentResult.current_result) {
+        await chrome.storage.local.set({
+          current_result: {
+            ...currentResult.current_result,
+            aiResult,
+            aiAnalysisCompleted: true
+          }
+        });
+
+        // Update cache with AI result
+        await setCached(domain, {
+          ...currentResult.current_result,
+          aiResult
+        }, 24);
+      }
+    }
+  } catch (error) {
+    console.error('[ScamDefender] Error running AI analysis:', error);
   }
 }
 
@@ -202,6 +277,7 @@ chrome.runtime.onMessage.addListener((message, sender) => {
           ...updatedSignals,
           score: newScore,
           contentScanCompleted: true,
+          pageExcerpts: message.pageExcerpts,
           timestamp: Date.now()
         };
 
@@ -219,6 +295,9 @@ chrome.runtime.onMessage.addListener((message, sender) => {
         await updateBadge(tabId, badgeText, color);
 
         console.log(`Updated analysis for tab ${tabId} with content scan: score=${newScore}`, updatedSignals);
+
+        // Trigger AI analysis with updated signals and page excerpts
+        runAIAnalysisInBackground(currentResult.domain, currentResult.url, tabId, updatedSignals);
       });
     }
   }
