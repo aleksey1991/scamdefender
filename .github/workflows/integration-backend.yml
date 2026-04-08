@@ -1,0 +1,48 @@
+name: Backend Integration Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_base_url:
+        description: 'API base URL to test against'
+        required: true
+        type: string
+        default: 'https://scamdefender-api.workers.dev'
+
+jobs:
+  integration-test:
+    name: Run Integration Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Read .nvmrc
+        id: node-version
+        run: echo "node-version=$(cat ../.nvmrc)" >> $GITHUB_OUTPUT
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ steps.node-version.outputs.node-version }}
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run integration tests
+        run: npm test -- test/integration
+        env:
+          API_BASE_URL: ${{ inputs.api_base_url }}
+          TEST_JWT_TOKEN: ${{ secrets.TEST_JWT_TOKEN }}
+
+      - name: Test summary
+        run: |
+          echo "### Integration Tests Complete! :white_check_mark:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**API Base URL:** ${{ inputs.api_base_url }}" >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,31 @@
+name = "scamdefender-api"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+# KV Namespaces
+[[kv_namespaces]]
+binding = "SCAM_CACHE"
+id = "scam_cache_prod"
+preview_id = "scam_cache_dev"
+
+[[kv_namespaces]]
+binding = "USER_STATUS"
+id = "user_status_prod"
+preview_id = "user_status_dev"
+
+[[kv_namespaces]]
+binding = "RATE_LIMIT"
+id = "rate_limit_prod"
+preview_id = "rate_limit_dev"
+
+# Environment variables (non-secret)
+[vars]
+ENVIRONMENT = "production"
+GIFTED_PRO_EMAILS = ""
+
+# Secrets (set via wrangler secret put)
+# GEMINI_API_KEY
+# SUPABASE_JWT_SECRET
+# SUPABASE_URL
+# SUPABASE_SERVICE_ROLE_KEY
+# STRIPE_WEBHOOK_SECRET
